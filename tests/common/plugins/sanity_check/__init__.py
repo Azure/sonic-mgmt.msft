@@ -7,6 +7,7 @@ import pytest
 
 from collections import defaultdict
 
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
 from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
@@ -81,12 +82,13 @@ def _update_check_items(old_items, new_items, supported_items):
 
 
 def print_logs(duthosts, print_dual_tor_logs=False):
-    for dut in duthosts:
+
+    def print_cmds_output_from_duthost(dut, is_dual_tor):
         logger.info("Run commands to print logs")
 
         cmds = list(constants.PRINT_LOGS.values())
 
-        if print_dual_tor_logs is False:
+        if is_dual_tor is False:
             cmds.remove(constants.PRINT_LOGS['mux_status'])
             cmds.remove(constants.PRINT_LOGS['mux_config'])
 
@@ -97,6 +99,10 @@ def print_logs(duthosts, print_dual_tor_logs=False):
             res.pop('stderr')
             outputs.append(res)
         logger.info("dut={}, cmd_outputs={}".format(dut.hostname, json.dumps(outputs, indent=4)))
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(print_cmds_output_from_duthost, duthost, print_dual_tor_logs)
 
 
 def filter_check_items(tbinfo, duthosts, check_items):
