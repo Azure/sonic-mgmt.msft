@@ -234,6 +234,11 @@ def pytest_addoption(parser):
     parser.addoption("--is_parallel_leader", action="store_true", default=False, help="Is the parallel leader")
     parser.addoption("--parallel_followers", action="store", default=0, type=int, help="Number of parallel followers")
 
+    #################################
+    #   Stress test options         #
+    #################################
+    parser.addoption("--run-stress-tests", action="store_true", default=False, help="Run only tests stress tests")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -2825,15 +2830,6 @@ def cli_namespace_prefix(request, selected_asic_index):
         return f'-n {NAMESPACE_PREFIX}{selected_asic_index}'
 
 
-def pytest_collection_modifyitems(config, items):
-    # Skip all stress_tests if --run-stress-test is not set
-    if not config.getoption("--run-stress-tests"):
-        skip_stress_tests = pytest.mark.skip(reason="Stress tests run only if --run-stress-tests is passed")
-        for item in items:
-            if "stress_test" in item.keywords:
-                item.add_marker(skip_stress_tests)
-
-
 @pytest.fixture(scope='function')
 def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -2879,6 +2875,15 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
 
         res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
         assert res['failed'] is False
+
+
+def pytest_collection_modifyitems(config, items):
+    # Skip all stress_tests if --run-stress-test is not set
+    if not config.getoption("--run-stress-tests"):
+        skip_stress_tests = pytest.mark.skip(reason="Stress tests run only if --run-stress-tests is passed")
+        for item in items:
+            if "stress_test" in item.keywords:
+                item.add_marker(skip_stress_tests)
 
 
 def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
