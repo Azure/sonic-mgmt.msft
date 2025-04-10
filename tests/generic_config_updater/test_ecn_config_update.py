@@ -94,7 +94,7 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
 
     json_patch = list()
     values = list()
-    ecn_data = duthost.shell('sonic-db-cli CONFIG_DB hgetall "WRED_PROFILE|AZURE_LOSSLESS"')['stdout']
+    ecn_data = duthost.shell('sonic-db-cli CONFIG_DB hgetall "WRED_PROFILE|AZURE"')['stdout']
     ecn_data = ast.literal_eval(ecn_data)
     for field in configdb_field.split(','):
         value = int(ecn_data[field]) + 1
