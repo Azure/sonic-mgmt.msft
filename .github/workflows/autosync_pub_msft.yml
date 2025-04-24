@@ -1,4 +1,4 @@
-name: AutoSync
+name: SyncFromPublicToMsft
 
 on:
   # Automatically trigger at 00:00(UTC) everyday
@@ -39,7 +39,7 @@ jobs:
           git remote add head https://github.com/sonic-net/sonic-mgmt   # src repo
           git fetch head
 
-      - name: Code merge
+      - name: Sync code from public to msft
         run: |
           set -ex
 
