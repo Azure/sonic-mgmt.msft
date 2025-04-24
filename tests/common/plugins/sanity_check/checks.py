@@ -161,7 +161,6 @@ def check_interfaces(duthosts):
         results[dut.hostname] = check_result
     return _check
 
-
 @pytest.fixture(scope="module")
 def check_bgp(duthosts, tbinfo):
     init_result = {"failed": False, "check_item": "bgp"}
