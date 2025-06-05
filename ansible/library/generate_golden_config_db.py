@@ -53,7 +53,7 @@ class GenerateGoldenConfigDBModule(object):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
                                     port_index_map=dict(require=False, type='dict', default=None),
                                     macsec_profile=dict(require=False, type='str', default=None),
-                                    num_asics=dict(require=False, type='int', default=1)),
+                                    num_asics=dict(require=False, type='int', default=1),
                                     hwsku=dict(require=False, type='str', default=None)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
