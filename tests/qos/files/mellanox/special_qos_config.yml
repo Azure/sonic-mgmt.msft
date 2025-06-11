@@ -36,7 +36,6 @@ qos_params:
             pkts_num_margin: 8
         wm_q_shared_lossy:
             packet_size: 1200
-
     spc5:
         profile:
             pkts_num_leak_out: 1
