@@ -211,6 +211,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                   # n
                                                all_prio_list,               # noqa: F811
                                                get_snappi_ports,            # noqa: F811
                                                tbinfo,                      # noqa: F811
+                                               disable_pfcwd,               # noqa: F811
                                                reboot_duts_and_disable_wd,  # noqa: F811
                                                setup_ports_and_dut):        # noqa: F811
     """
@@ -270,6 +271,7 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                   # no
                                               lossless_prio_list,           # noqa: F811
                                               get_snappi_ports,             # noqa: F811
                                               tbinfo,                       # noqa: F811
+                                              disable_pfcwd,                # noqa: F811
                                               reboot_duts_and_disable_wd,   # noqa: F811
                                               setup_ports_and_dut):         # noqa: F811
     """
