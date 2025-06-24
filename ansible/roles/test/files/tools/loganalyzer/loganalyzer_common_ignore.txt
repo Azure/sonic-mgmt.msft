@@ -330,3 +330,7 @@ r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/b
 
 # Ignore SAI_NEXT_HOP_GROUP_ATTR_TYPE unsupported
 r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/33479668
+r, ".* ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, NOT translating and NOT storing in ASIC DB.*"
+r, ".* ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent since it contain invalid OIDs.*"
