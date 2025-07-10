@@ -366,8 +366,6 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
                     upstream_ports[neighbor['namespace']].append(interface)
                     upstream_port_ids.append(port_id)
                     upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
-                    if neigh_type == "PT0":
-                        upstream_service_ports[neighbor['namespace']].append(interface)
                 count += 1
         else:
             for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
@@ -385,6 +383,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
                         upstream_ports[neighbor['namespace']].append(interface)
                         upstream_port_ids.append(port_id)
                         upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+                        if neigh_type == "PT0":
+                            upstream_service_ports[neighbor['namespace']].append(interface)
 
     # stop garp service for single tor
     if 'dualtor' not in tbinfo['topo']['name']:
