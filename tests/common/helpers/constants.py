@@ -42,7 +42,7 @@ DOWNSTREAM_NEIGHBOR_MAP = {
     "t1": "t0",
     "m0": "mx",
     "mx": "server",
-    "t2": "t1",
+    "t2": "t1, lt2",
     "m0_vlan": "server",
     "m0_l3": "mx",
     "ft2": "lt2",
