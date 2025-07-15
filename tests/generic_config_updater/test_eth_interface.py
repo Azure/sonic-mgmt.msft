@@ -476,7 +476,6 @@ def test_eth_interface_admin_change(duthosts, rand_one_dut_front_end_hostname, a
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
                                                  is_asic_specific=True, asic_namespaces=[asic_namespace])
 
-
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 

@@ -223,8 +223,8 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table, enum_rand_o
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_portchannel_interface_tc1_suite(duthosts, rand_one_dut_hostname, portchannel_table, enum_rand_one_frontend_asic_index,
-                                         rand_portchannel_name):
+def test_portchannel_interface_tc1_suite(duthosts, rand_one_dut_hostname, portchannel_table,
+                                         enum_rand_one_frontend_asic_index, rand_portchannel_name):
     duthost = duthosts[rand_one_dut_hostname]
     portchannel_interface_tc1_add_duplicate(duthost, portchannel_table,
                                             enum_rand_one_frontend_asic_index, rand_portchannel_name)
