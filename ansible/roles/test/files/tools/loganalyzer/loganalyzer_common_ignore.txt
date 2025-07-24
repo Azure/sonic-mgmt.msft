@@ -355,3 +355,6 @@ r, ".*ERR swss#orchagent.*:.*queryAttributeEnumValuesCapability:.*returned value
 
 # Ignore SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE unsupported
 r, ".*ERR swss#orchagent.*:.*queryTrimModeEnumCapabilities:.*Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\) enum value capabilities.*"
+
+# Ignore stats capability errors
+r, ".* ERR syncd#syncd: .*SAI_API_SWITCH:sai_query_stats_capability:874 stats capablity not supported for object \d+"
