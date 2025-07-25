@@ -991,7 +991,7 @@ def fib_ft2_routes(topo, ptf_ip, action="announce"):
 
     vms = sorted(topo['topology']['VMs'])
 
-    group_number = len(vms) // GROUP_SIZE
+    group_number = int(math.ceil(float(len(vms)) / GROUP_SIZE))
     routes_per_group = ROUTE_NUMBER // group_number  # Number of routes per group
     subnets_ipv4 = list(ipaddress.ip_network(UNICODE_TYPE(BASE_NETWORK_V4)).subnets(new_prefix=PREFIX_LEN_V4))
     subnets_ipv6 = list(ipaddress.ip_network(UNICODE_TYPE(BASE_NETWORK_V6)).subnets(new_prefix=PREFIX_LEN_V6))
@@ -1005,6 +1005,8 @@ def fib_ft2_routes(topo, ptf_ip, action="announce"):
         # Get the index of the VM in the group
         for lt2_index in range(GROUP_SIZE):
             vm_index = group_index * GROUP_SIZE + lt2_index
+            if vm_index >= len(vms):
+                break
             vm_name = vms[vm_index]
             vm_offset = topo['topology']['VMs'][vm_name]['vm_offset']
             port = IPV4_BASE_PORT + vm_offset
@@ -1193,7 +1195,7 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce"):
     all_subnetv4 = list(ipaddress.ip_network(UNICODE_TYPE(BASE_ADDR_V4)).subnets(new_prefix=24))
     all_subnetv6 = list(ipaddress.ip_network(UNICODE_TYPE(BASE_ADDR_V6)).subnets(new_prefix=124))
 
-    group_nums = int(len(t1_vms) // T1_GROUP_SIZE)
+    group_nums = int(math.ceil(float(len(t1_vms)) / T1_GROUP_SIZE))
     t1_route_per_group = int(math.ceil(ROUTE_NUMBER_T1 / T1_GROUP_SIZE / group_nums))
 
     for group in range(group_nums):
@@ -1203,6 +1205,8 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce"):
         as_path = "{} {}".format(leaf_asn_start + group, tor_asn_start + group)
 
         for vm_index in range(T1_GROUP_SIZE):
+            if group * T1_GROUP_SIZE + vm_index >= len(t1_vms):
+                break
             vm_name = t1_vms[group * T1_GROUP_SIZE + vm_index]
             vm_offset = topo['topology']['VMs'][vm_name]['vm_offset']
 
