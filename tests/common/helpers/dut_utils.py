@@ -425,7 +425,7 @@ def get_unsupported_fanout_ports(duthost, localhost):
     """
     Identifies and returns the set of DUT interface ports connected to a TH3 fanout device.
     """
-    unsupported_fanout_skus = {"DellEMC-Z9332f-O32", "DellEMC-Z9332f-M-O16C64"}
+    broadcom_th3_hwskus = {"DellEMC-Z9332f-O32", "DellEMC-Z9332f-M-O16C64"}
     unsupported_dut_ports = set()
 
     if duthost.facts.get("asic_type") == "vs":
@@ -454,7 +454,7 @@ def get_unsupported_fanout_ports(duthost, localhost):
             except RunAnsibleModuleFail:
                 continue
 
-        if fanout_sku in unsupported_fanout_skus:
+        if fanout_sku in broadcom_th3_hwskus:
             unsupported_dut_ports.add(dut_port)
 
     return unsupported_dut_ports
