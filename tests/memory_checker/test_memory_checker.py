@@ -259,7 +259,7 @@ def remove_and_restart_container(memory_checker_dut_and_container):
 def get_test_container(duthost):
     test_container = "telemetry"
     cmd = "docker images | grep -w sonic-gnmi"
-    if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+    if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0 and "202412" not in duthost.os_version:
         test_container = "gnmi"
     return test_container
 
