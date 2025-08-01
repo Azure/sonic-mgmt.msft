@@ -501,7 +501,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     if "202412" in duthost.os_version and duthost.facts['asic_type'] == 'vs':
         skip_condition.append("gnmi")
 
-
     # bgp0 -> bgp, bgp -> bgp, p4rt -> p4rt
     feature_name = ''.join(re.match(CONTAINER_NAME_REGEX, container_name).groups()[:-1])
 
