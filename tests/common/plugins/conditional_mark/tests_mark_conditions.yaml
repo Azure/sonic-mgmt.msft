@@ -1113,8 +1113,8 @@ generic_config_updater/test_pg_headroom_update.py:
 #####           gnmi              #####
 #######################################
 gnmi:
-  skip:
-    reason: Skip all gnmi tests on 202412 vs testbed
+  xfail:
+    reason: Xfail all gnmi tests on 202412 vs testbed, since it won't impact gnmi show command
     conditions:
       - "asic_type in ['vs'] and release in ['202412']"
 
@@ -1125,19 +1125,28 @@ gnmi/test_gnmi_configdb.py:
     conditions:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
+  xfail:
+    reason: Xfail all gnmi tests on 202412 vs testbed, since it won't impact gnmi show command
+    conditions:
       - "asic_type in ['vs'] and release in ['202412']"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
   skip:
     reason: "The test refers to a stale implementation of GNOI.System.Reboot."
-    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
+  xfail:
+    reason: Xfail all gnmi tests on 202412 vs testbed, since it won't impact gnmi show command
+    conditions:
       - "asic_type in ['vs'] and release in ['202412']"
 
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
+  xfail:
+    reason: Xfail all gnmi tests on 202412 vs testbed, since it won't impact gnmi show command
+    conditions:
+      - "asic_type in ['vs'] and release in ['202412']"
 
 #######################################
 #####           hash              #####
