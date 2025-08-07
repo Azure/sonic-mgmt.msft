@@ -498,7 +498,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     skip_condition.append("acms")
     if tbinfo["topo"]["type"] != "t0":
         skip_condition.append("radv")
-    if "202412" in duthost.os_version and duthost.facts['asic_type'] == 'vs':
+    if "202412" in duthost.os_version:
         skip_condition.append("gnmi")
 
     # bgp0 -> bgp, bgp -> bgp, p4rt -> p4rt
