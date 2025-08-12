@@ -156,6 +156,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, selected_dut_hostname, loga
             ".*ERR kernel.*Reset adapter.*",  # Valid test_portchannel_interface replace mtu
             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",  # Valid test_portchannel_interface replace mtu
             ".*ERR systemd.*Failed to start Host core file uploader daemon.*",  # Valid test_syslog
+            ".*ERR systemd.*Failed to start core_uploader.service.*",  # Valid test_syslog
 
             # sonic-swss/orchagent/crmorch.cpp
             ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*",  # test_monitor_config
@@ -171,3 +172,18 @@ def ignore_expected_loganalyzer_exceptions(duthosts, selected_dut_hostname, loga
             ".*ERR ctrmgrd.py: Join failed.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+
+@pytest.fixture(scope="session")
+def skip_if_packet_trimming_not_supported(duthost):
+    """
+    Check if the current device supports packet trimming feature.
+    """
+    platform = duthost.facts["platform"]
+    logger.info(f"Checking packet trimming support for platform: {platform}")
+
+    # Check if the SWITCH_TRIMMING_CAPABLE capability is true
+    trimming_capable = duthost.command('redis-cli -n 6 HGET "SWITCH_CAPABILITY|switch" "SWITCH_TRIMMING_CAPABLE"')[
+        'stdout'].strip()
+    if trimming_capable.lower() != 'true':
+        pytest.skip("Packet trimming is not supported")

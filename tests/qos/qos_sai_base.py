@@ -42,12 +42,11 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = [
-        "t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "dualtor-56", "dualtor-64",
-        "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "t0-120", "t0-80", "t0-backend",
-        "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64", "t0-standalone-128",
-        "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2"
-    ]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "dualtor-56",
+                          "dualtor-64", "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa",
+                          "dualtor-aa-64-breakout", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag",
+                          "t0-standalone-32", "t0-standalone-64", "t0-standalone-128", "t0-standalone-256", "t0-28",
+                          "t0-isolated-d16u16s1", "t0-isolated-d16u16s2"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
                           "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag",
@@ -99,22 +98,22 @@ class QosBase:
         elif dut_test_params_qos["topo"] in self.SUPPORTED_T0_TOPOS:
             dut_test_params_qos["basicParams"]["router_mac"] = ''
 
-        elif "dualtor" in tbinfo["topo"]["name"]:
-            # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
-            # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
-            dut_test_params_qos["basicParams"]["is_dualtor"] = True
+            if "dualtor" in tbinfo["topo"]["name"]:
+                # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
+                # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
+                dut_test_params_qos["basicParams"]["is_dualtor"] = True
 
-            vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
-            if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
-                default_vlan_name = vlan_cfgs['default_vlan_config']
-                if default_vlan_name:
-                    for vlan in vlan_cfgs[default_vlan_name].values():
-                        if 'mac' in vlan and vlan['mac']:
-                            dut_test_params_qos["basicParams"]["def_vlan_mac"] = vlan['mac']
-                            break
+                vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+                if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+                    default_vlan_name = vlan_cfgs['default_vlan_config']
+                    if default_vlan_name:
+                        for vlan in vlan_cfgs[default_vlan_name].values():
+                            if 'mac' in vlan and vlan['mac']:
+                                dut_test_params_qos["basicParams"]["def_vlan_mac"] = vlan['mac']
+                                break
 
-            pytest_assert(dut_test_params_qos["basicParams"]["def_vlan_mac"] is not None,
-                          "Dual-TOR miss default VLAN MAC address")
+                pytest_assert(dut_test_params_qos["basicParams"]["def_vlan_mac"] is not None,
+                              "Dual-TOR miss default VLAN MAC address")
         else:
             try:
                 duthost = get_src_dst_asic_and_duts['src_dut']
@@ -1344,7 +1343,7 @@ class QosSaiBase(QosBase):
             "srcDutInstance": src_dut,
             "dstDutInstance": dst_dut,
             "dualTor": request.config.getoption("--qos_dual_tor"),
-            "dualTorScenario": len(dualtor_ports_for_duts) != 0
+            "dualTorScenario": len(dualtor_ports_for_duts) != 0 and "dualtor" not in tbinfo["topo"]["name"]
         }
 
     @pytest.fixture(scope='class')
@@ -2783,15 +2782,15 @@ def set_port_cir(interface, rate):
             return
 
         interfaces = [dst_port]
-        output = dst_asic.shell(f"show interface portchannel | grep {dst_port}", module_ignore_errors=True)['stdout']
-        if output != '':
-            output = output.replace('(S)', '')
-            pattern = ' *[0-9]*  *PortChannel[0-9]*  *LACP\\(A\\)\\(Up\\)  *(Ethernet[0-9]*.*)'
-            import re
-            match = re.match(pattern, output)
-            if not match:
-                raise RuntimeError(f"Couldn't find required interfaces out of the output:{output}")
-            interfaces = match.group(1).split(' ')
+        # If interface is a PortChannel member, expand the list of interfaces that need scheduler setting
+        mgfacts = dst_dut.get_extended_minigraph_facts()
+        for portchan in mgfacts['minigraph_portchannels']:
+            members = mgfacts['minigraph_portchannels'][portchan]['members']
+            if dst_port in members:
+                logger.info("Interface {} is a member of portchannel {}, setting interfaces list to members {}".format(
+                    dst_port, portchan, members))
+                interfaces = members
+                break
 
         # Set scheduler to 5 Gbps.
         self.copy_set_cir_script_cisco_8000(

@@ -161,7 +161,16 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
         ecn_data = ast.literal_eval(ecn_data)
         new_values[wred_profile] = {}
         for field in fields:
-            value = int(ecn_data[field]) + 1
+            value = int(ecn_data[field])
+            if "probability" in field:
+                if 0 <= value <= 99:
+                    value += 1
+                elif value == 100:
+                    value -= 1
+                else:
+                    raise ValueError("Invalid probability value: {}".format(value))
+            else:
+                value += 1
             new_values[wred_profile][field] = value
 
             logger.info("value to be added to json patch: {}, operation: {}, field: {}"
@@ -172,7 +181,7 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
                                "path": f"/WRED_PROFILE/{wred_profile}/{field}",
                                "value": "{}".format(value)})
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_platform_and_version(duthost, "WRED_PROFILE", "ECN tuning", operation):
