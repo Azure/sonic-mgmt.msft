@@ -1010,6 +1010,12 @@ generic_config_updater/test_dynamic_acl.py:
       - "topo_name in ['m0-2vlan']"
       - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o_c01-r0']"
 
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_dhcp_rule_creation:
+  skip:
+    reason: "DHCP is not enabled in isolated topo"
+    conditions:
+      - "'t0-isolated' in topo_name"
+
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
     reason: "This test is not run on this asic type, topology, or version currently"
@@ -1076,12 +1082,6 @@ generic_config_updater/test_multiasic_linkcrc.py:
     conditions:
       - "(is_multi_asic is False)"
 
-generic_config_updater/test_packet_trimming_config.py:
-  skip:
-    reason: "KVM do not support the feature"
-    conditions:
-      - "asic_type in ['vs']"
-
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
@@ -1108,6 +1108,13 @@ generic_config_updater/test_pg_headroom_update.py:
     conditions:
       - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
       - "'t2' in topo_name"
+
+generic_config_updater/test_srv6:
+  skip:
+    reason: "Unsupported topology."
+    conditions_logical_operator: "OR"
+    conditions:
+      - "topo_name in ['t0-isolated-d96u32s2']"
 
 #######################################
 #####           gnmi              #####
@@ -1605,10 +1612,10 @@ mvrf:
 
 mvrf/test_mgmtvrf.py:
   skip:
-    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M0/MX topo, kvm testbed"
+    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M0/MX topo, kvm testbed, mellanox and nvidia asic from 202411 and later"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs', 'mellanox', 'nvidia']"
       - "topo_type in ['m0', 'mx']"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
 
@@ -1617,9 +1624,11 @@ mvrf/test_mgmtvrf.py:
 #######################################
 nat:
   skip:
-    reason: "Nat feature is not enabled with image version"
+    reason: "Nat feature is not enabled with image version, skipped on mellanox and nvidia asic from 202411 and later "
+    conditions_logical_operator: or
     conditions:
       - "'nat' not in feature_status"
+      - "asic_type in ['mellanox', 'nvidia']"
 
 #######################################
 #####             ospf            #####
@@ -1642,9 +1651,9 @@ override_config_table/test_override_config_table.py:
 #######################################
 ######       packet_trimming       #####
 ########################################
-packet_trimming/test_packet_trimming.py:
+packet_trimming:
   skip:
-    reason: "Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
+    reason: "Packet trimming cases require PR https://github.com/sonic-net/sonic-buildimage/pull/22869, but KVM does not support it, so skip trimming case on KVM. Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
@@ -1765,14 +1774,14 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on m0/mx testbed. / Warm reboot is not required for 202412 / Pfcwd warm reboot is not supported on cisco-8000 platform."
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on m0/mx testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform."
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name"
         - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx']"
-        - "release in ['202412']"
         - "asic_type in ['cisco-8000']"
+        - "'isolated' in topo_name"
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
@@ -2393,7 +2402,7 @@ srv6/test_srv6_dataplane.py:
     conditions:
       - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "topo_name in ['t0-isolated-d96u32', 't1-isolated-d128', 't1-isolated-d32']"
+      - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
 
 srv6/test_srv6_static_config.py:
   skip:
@@ -2402,7 +2411,7 @@ srv6/test_srv6_static_config.py:
     conditions:
       - "release not in ['202412']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "topo_name in ['t0-isolated-d96u32', 't1-isolated-d128', 't1-isolated-d32']"
+      - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
 
 srv6/test_srv6_static_config.py::test_uDT46_config:
   skip:
@@ -2417,7 +2426,7 @@ srv6/test_srv6_vlan_forwarding.py:
     conditions:
       - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "topo_name in ['t0-isolated-d96u32', 't1-isolated-d128', 't1-isolated-d32']"
+      - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
 
 #######################################
 #####             ssh             #####
@@ -2439,8 +2448,10 @@ ssh/test_ssh_stress.py::test_ssh_stress:
 sub_port_interfaces:
   skip:
     reason: "Unsupported platform or asic"
+    conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
+      - "asic_type in ['mellanox', 'nvidia']"
 
 sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port]:
   skip:
@@ -2668,9 +2679,9 @@ voq/test_voq_fabric_status_all.py:
 #######################################
 vrf/test_vrf.py:
   skip:
-    reason: "Vrf tests are skipped both in nightly and PR testing."
+    reason: "Vrf tests are skipped both in nightly and PR testing, not supported on mellanox and nvidia asic from 202411 and later."
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs', 'mellanox', 'nvidia']"
 
 vrf/test_vrf.py::TestVrfAclRedirect:
   skip:
@@ -2682,9 +2693,9 @@ vrf/test_vrf.py::TestVrfAclRedirect:
 
 vrf/test_vrf_attr.py:
   skip:
-    reason: "Vrf tests are skipped in PR testing."
+    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later."
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs', 'mellanox', 'nvidia']"
 
 vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
   skip:
