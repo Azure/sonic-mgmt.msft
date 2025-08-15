@@ -1600,6 +1600,15 @@ mclag/test_mclag_l3.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####      memory_checker         #####
+#######################################
+memory_checker/test_memory_checker.py:
+  skip:
+    reason: "Skip this test as it won't impact gnmi show command"
+    conditions:
+      - "release in ['202412']"
+
+#######################################
 #####            mpls             #####
 #######################################
 mpls/test_mpls.py:
