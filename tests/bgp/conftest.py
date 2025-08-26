@@ -812,6 +812,12 @@ def pytest_addoption(parser):
         default=None,
         help="Max flap neighbor number, default is None"
     )
+    parser.addoption(
+        "--vnet-count",
+        action="store",
+        default="1000",
+        help="Number of VNETs/VLANs/Subinterfaces to create"
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -899,11 +905,6 @@ def get_function_completeness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
 
 
-@pytest.fixture(scope='module')
-def ip_version(tbinfo):
-    return 'v6' if is_ipv6_only_topology(tbinfo) else 'v4'
-
-
-@pytest.fixture(scope='module')
-def show_ip_interface_cmd(ip_version):
-    return SHOW_IP_INTERFACE_CMD[ip_version]
+@pytest.fixture(scope="module")
+def vnet_count(request):
+    return int(request.config.getoption("--vnet-count"))
