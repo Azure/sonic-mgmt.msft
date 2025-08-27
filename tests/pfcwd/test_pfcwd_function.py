@@ -734,7 +734,13 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         test_ports_info = {self.pfc_wd['rx_port'][0]: self.pfc_wd}
         queues = [self.storm_hndle.pfc_queue_idx]
 
-        extra_pfc_storm_timeout_needed = dut.facts['asic_type'] in ["mellanox", "cisco-8000", "broadcom"]
+        if dut.facts['asic_type'] in ["mellanox", "cisco-8000"]:
+            extra_pfc_storm_timeout_needed = 1
+        elif dut.facts['asic_type'] in ["broadcom"] and dut.facts['platform_asic'] not in ['broadcom-dnx']:
+            extra_pfc_storm_timeout_needed = 1
+        else:
+            extra_pfc_storm_timeout_needed = 0
+
         if extra_pfc_storm_timeout_needed:
             PFC_STORM_TIMEOUT = 30
             pfcwd_stats_before_test = check_pfc_storm_state(dut, port, self.storm_hndle.pfc_queue_idx)
