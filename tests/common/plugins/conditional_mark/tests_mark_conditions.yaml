@@ -290,11 +290,12 @@ bgp/test_bgp_slb.py:
 bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
   skip:
     reason: "Skip it on dual tor since it got stuck during warm reboot due to known issue on master and internal image
-             or over topologies which doesn't support slb."
+             or over topologies which doesn't support slb. / Skip warm-reboot related BGP test on 202412 (backend ToRs)"
     conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56'] and https://github.com/sonic-net/sonic-mgmt/issues/9201"
       - "'backend' in topo_name or 'mgmttor' in topo_name or 'isolated' in topo_name"
+      - "release in ['202412']"
 
 bgp/test_bgp_speaker.py:
   skip:
@@ -3308,6 +3309,12 @@ snappi_tests/pfc/test_global_pause_with_snappi.py:
     conditions:
       - "asic_type in ['cisco-8000', 'vs']"
       - "topo_type in ['t2', 'multidut-tgen']"
+
+snappi_tests/reboot/test_warm_reboot.py:
+  skip:
+    reason: "Skip all Snappi warm-reboot tests on 202412"
+    conditions:
+      - "release in ['202412']"
 
 #######################################
 #####            snmp             #####
