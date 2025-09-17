@@ -1,5 +1,5 @@
 smartswitch_hwsku_config = {
-    "Cisco-8102-28FH-DPU-O-T1": {
+    "Cisco-8102-28FH-DPU-O": {
         "dpu_num": 8,
         "port_key": "Ethernet-BP{}",
         "interface_key": "Ethernet-BP{}|18.{}.202.0/31",
