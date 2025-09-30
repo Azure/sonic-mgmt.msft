@@ -813,7 +813,7 @@ def pytest_addoption(parser):
         help="Max flap neighbor number, default is None"
     )
     parser.addoption(
-        "--vnet-count",
+        "--vnet_count",
         action="store",
         default="1000",
         help="Number of VNETs/VLANs/Subinterfaces to create"
@@ -907,4 +907,4 @@ def get_function_completeness_level(pytestconfig):
 
 @pytest.fixture(scope="module")
 def vnet_count(request):
-    return int(request.config.getoption("--vnet-count"))
+    return int(request.config.getoption("--vnet_count"))
