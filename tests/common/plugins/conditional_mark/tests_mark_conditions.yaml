@@ -1936,13 +1936,6 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
 
 #######################################
-#####         pktgen              #####
-#######################################
-test_pktgen.py:
-  skip:
-    reason: "have known issue, skip for now"
-
-#######################################
 #####         vs_chassis          #####
 #######################################
 test_vs_chassis_setup.py:
