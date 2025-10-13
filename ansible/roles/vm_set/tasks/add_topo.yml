@@ -240,7 +240,6 @@
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
-      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
       batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
     when: not enable_async
@@ -273,7 +272,6 @@
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
-      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
     async: 3600
     poll: 0
