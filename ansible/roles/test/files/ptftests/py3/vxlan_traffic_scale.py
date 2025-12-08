@@ -31,16 +31,7 @@ class VXLANScaleTest(BaseTest):
         self.samples_per_vnet = int(self.test_params.get("samples_per_vnet", -1))
         self.vnet_ptf_map = self.test_params["vnet_ptf_map"]
         self.mac_vni_per_vnet = self.test_params.get("mac_vni_per_vnet", "")
-        self.routes_per_vni = self.test_params.get("vni_batch_size", 1000)
-        self.routes_to_test_file_paths = self.test_params.get("routes_to_test_file_paths", {})
-
-        if self.samples_per_vnet < 0:
-            self.samples_per_vnet = self.routes_per_vnet
-
-        self.routes_to_test = {}
-        for vnet_name, mappings in self.vnet_ptf_map.items():
-            with open(self.routes_to_test_file_paths[vnet_name], "r") as f:
-                self.routes_to_test[vnet_name] = json.load(f)
+        self.programmed_mac = self.test_params.get("mac_address")
 
         # egress interfaces can be list or single int (for backward compat)
         egress_param = self.test_params.get("egress_ptf_if", [])
@@ -107,10 +98,83 @@ class VXLANScaleTest(BaseTest):
         m.set_do_not_care_scapy(scapy.UDP, "sport")
         return m
 
-    def _build_packets_for_test(self, ingress_port, dst_ip, src_ip, programmed_mac, vni, endpoint):
+    def _build_packets_for_test(self, ingress_port, dst_ip, src_ip, programmed_mac, vni):
         """
         Returns: (inner_packet, masked_expected_encap)
         """
+
+        src_mac = self.dataplane.get_mac(0, ingress_port)
+
+        # Base inner packet
+        inner = simple_tcp_packet(
+            eth_dst=self.router_mac,
+            eth_src=src_mac,
+            ip_dst=dst_ip,
+            ip_src=src_ip,
+            ip_id=105,
+            ip_ttl=64,
+            tcp_sport=self._next_port("sport"),
+            tcp_dport=self._next_port("dport"),
+            pktlen=100,
+        )
+
+        # Expected inner after DUT rewrite
+        inner_exp = inner.copy()
+        inner_exp[scapy.Ether].src = self.router_mac
+        inner_exp[scapy.Ether].dst = programmed_mac
+        inner_exp[scapy.IP].ttl = 63
+
+        # Masked expected encap
+        masked = self.build_masked_encap(inner_exp, vni)
+        return inner, masked
+
+    def _send_and_verify(self, vnet_name, ingress_port, inner_pkt, exp_pkt, failures, log_prefix):
+        try:
+            send_packet(self, ingress_port, inner_pkt)
+            verify_packet_any_port(self, exp_pkt, self.egress_ptf_if, timeout=3)
+            self.logger.info(f"[{log_prefix}] {vnet_name} PASSED")
+        except Exception as e:
+            failures[vnet_name] += 1
+            self.logger.error(
+                f"[{log_prefix} FAIL] {vnet_name}: ingress={ingress_port}, error={repr(e)}"
+            )
+
+    def run_mac_vni_per_vnet_test(self):
+        self.logger.info("=== Running MAC+VNI validation for each VNET ===")
+
+        failures = {v: 0 for v in self.vnet_ptf_map}
+
+        for vnet_name, mapping in self.vnet_ptf_map.items():
+            vnet_id = mapping["vnet_id"]
+            ingress_port = int(mapping["ptf_ifindex"])
+            ptf_intf = mapping["ptf_intf"]
+
+            dst_ip = f"30.{vnet_id}.0.1"
+            src_ip = f"201.0.{vnet_id}.101"
+            vni = self.vnet_base + vnet_id + 1
+
+            self.logger.info(f"[MAC+VNI] Testing {vnet_name}: ip={dst_ip}, vni={vni} ingress={ptf_intf}")
+
+            inner, masked = self._build_packets_for_test(
+                ingress_port, dst_ip, src_ip, self.programmed_mac, vni
+            )
+
+            self._send_and_verify(vnet_name, ingress_port, inner, masked,
+                                  failures, "MAC+VNI")
+
+        # Summary
+        total_failures = sum(failures.values())
+        for v, c in failures.items():
+            self.logger.info(f"{v}: {c} failures")
+
+        if total_failures > 0:
+            self.fail(f"MAC+VNI validation failed with {total_failures} failures.")
+
+    def runTest(self):
+        self.logger.info("Starting VXLAN scale TCP verification test...")
+        self.dataplane.flush()
+        if self.mac_vni_per_vnet:
+            return self.run_mac_vni_per_vnet_test()
 
         src_mac = self.dataplane.get_mac(0, ingress_port)
 
@@ -200,11 +264,8 @@ class VXLANScaleTest(BaseTest):
                 dst_ip = self.routes_to_test[vnet_name][i]["route"]
                 ip_src = f"201.0.{vnet_id}.101"
 
-                endpoint = self.routes_to_test[vnet_name][i]["endpoint"]
-
                 inner, masked = self._build_packets_for_test(
-                    ingress_port, dst_ip, ip_src, self.mac_switch, vni, endpoint
-                )
+                    ingress_port, dst_ip, ip_src, self.mac_switch, vni)
 
                 self._send_and_verify(vnet_name, ingress_port, inner, masked,
                                       failures, "SCALE")
