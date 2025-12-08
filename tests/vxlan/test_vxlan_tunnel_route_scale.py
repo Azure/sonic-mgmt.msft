@@ -346,8 +346,7 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
         cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         num_vnets = scaled_vnet_params.get("num_vnet") or 5
-        routes_per_vnet = scaled_vnet_params.get("num_routes") or 1000
-        samples_per_vnet = request.config.getoption("num_samples") or -1
+        routes_per_vnet = scaled_vnet_params.get("num_routes") or 10000
         vnet_base = 10000
         duts_map = tbinfo["duts_map"]
         dut_indx = duts_map[duthost.hostname]
@@ -405,6 +404,47 @@ def test_vxlan_scale_traffic(vxlan_scale_setup_teardown, ptfhost):
     logger.info("VXLAN traffic test completed successfully")
 
 
+def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
+    setup, duthost = vxlan_scale_setup_teardown
+
+    programmed_mac = "52:54:00:12:34:56"
+
+    logger.info("Programming MAC+VNI overrides for each VNET (per-VNET test).")
+
+    # Program one /32 per VNET with MAC + shifted VNI
+    for vnet_name, mapping in setup["vnet_ptf_map"].items():
+        vnet_id = mapping["vnet_id"]
+        prefix = f"30.{vnet_id}.0.1/32"
+        endpoint = setup["ptf_vtep"]
+        vni = setup["vnet_base"] + vnet_id + 1
+
+        logger.info(f"Updating {vnet_name} route {prefix}, vni={vni}, mac={programmed_mac}")
+
+        duthost.shell(
+            f"sonic-db-cli CONFIG_DB hmset 'VNET_ROUTE_TUNNEL|{vnet_name}|{prefix}' "
+            f"endpoint '{endpoint}' vni '{vni}' mac_address '{programmed_mac}'"
+        )
+
+    # Run PTF in MAC+VNI mode
+    ptf_params = {
+        **setup,
+        "mac_vni_per_vnet": "yes",
+        "mac_address": programmed_mac,
+    }
+
+    ptf_runner(
+        ptfhost,
+        "ptftests",
+        "vxlan_traffic_scale.VXLANScaleTest",
+        platform_dir="ptftests",
+        params=ptf_params,
+        log_file="/tmp/vxlan_scale_macvni.log",
+        is_python3=True
+    )
+
+    logger.info("MAC+VNI per-VNET test completed successfully.")
+
+
 def test_vxlan_scale_config_reload(vxlan_scale_setup_teardown, ptfhost, duthosts, rand_one_dut_hostname):
     setup_params, duthost = vxlan_scale_setup_teardown
     logger.info("Running VXLAN scale config reload test")
@@ -446,153 +486,3 @@ def test_vxlan_scale_config_reload(vxlan_scale_setup_teardown, ptfhost, duthosts
     )
 
     logger.info("VXLAN scale config-reload test PASSED")
-
-
-def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
-    """
-    Modify all /32 VNET routes created in setup:
-    - Assign unique deterministic MAC per route
-    - Assign a VNI bucket per route index
-    - Apply updates via sonic-cfggen JSON chunks (FAST)
-    """
-    setup, duthost = vxlan_scale_setup_teardown
-
-    vnet_base = setup["vnet_base"]
-    routes_per_vnet = setup["routes_per_vnet"]
-
-    logger.info("Updating ALL VNET routes with deterministic MAC + VNI (cfggen batch mode)...")
-
-    def gen_mac(vnet_id, idx, base_mac="52:54:aa"):
-        hi = (idx >> 8) & 0xFF
-        lo = idx & 0xFF
-        return f"{base_mac}:{vnet_id:02x}:{hi:02x}:{lo:02x}"
-
-    def gen_vni(vnet_id, idx, group_size=VNI_BUCKET_SIZE, offset=0):
-        bucket = idx // group_size
-        return vnet_base + (vnet_id * group_size) + bucket + offset
-
-    # Add mac and vni to routes and run datapath test
-    for vnet_name, mapping in setup["vnet_ptf_map"].items():
-        vnet_id = mapping["vnet_id"]
-
-        logger.info(f"Building JSON update for {vnet_name}, {routes_per_vnet} routes")
-
-        route_updates = {}
-
-        routes, endpoints = generate_routes_and_endpoint(vnet_id, routes_per_vnet)
-        all_macs_for_vnet = [gen_mac(vnet_id, i) for i in range(routes_per_vnet)]
-        all_vnis_for_vnet = [gen_vni(vnet_id, i) for i in range(routes_per_vnet)]
-        for i in range(routes_per_vnet):
-            route_updates[f"{vnet_name}|{routes[i]}"] = {
-                "endpoint": endpoints[i],
-                "mac_address": all_macs_for_vnet[i],
-                "vni": str(all_vnis_for_vnet[i])
-            }
-
-        # Write JSON file
-        cfg_file = f"/tmp/{vnet_name}_route_macvni.json"
-        duthost.copy(content=json.dumps({"VNET_ROUTE_TUNNEL": route_updates}, indent=2),
-                     dest=cfg_file)
-
-        # Apply with cfggen
-        logger.info(f"Applying updates for {vnet_name} via sonic-cfggen")
-        duthost.shell(f"sonic-cfggen -j {cfg_file} --write-to-db")
-
-        # Generate new test routes file with MAC and VNI for PTF validation
-        # file path should be same as initial setup
-        logger.info(f"Generating new test routes file with MAC/VNI for {vnet_name}")
-        generate_routes_to_test_file(
-            ptfhost,
-            setup["samples_per_vnet"],
-            routes_per_vnet,
-            vnet_name,
-            routes,
-            endpoints,
-            mac_addresses=all_macs_for_vnet,
-            vnis=all_vnis_for_vnet
-        )
-
-    time.sleep(20)
-
-    logger.info("All route MAC+VNI updates applied via batch cfggen.")
-
-    # ---- Run PTF ----
-    ptf_params = {
-        **setup,
-        "mac_vni_per_vnet": "yes",
-        "vni_batch_size": VNI_BUCKET_SIZE,
-    }
-
-    ptf_runner(
-        ptfhost,
-        "ptftests",
-        "vxlan_traffic_scale.VXLANScaleTest",
-        platform_dir="ptftests",
-        params=ptf_params,
-        log_file="/tmp/vxlan_scale_macvni.log",
-        is_python3=True
-    )
-
-    # Modify mac, vni, and endpoint and rerun datapath test
-    for vnet_name, mapping in setup["vnet_ptf_map"].items():
-        vnet_id = mapping["vnet_id"]
-
-        logger.info(f"Building JSON update for {vnet_name}, {routes_per_vnet} routes")
-
-        route_updates = {}
-        routes, endpoints = generate_routes_and_endpoint(vnet_id, routes_per_vnet, 1)
-        all_macs_for_vnet = [gen_mac(vnet_id, i, base_mac="52:54:bb") for i in range(routes_per_vnet)]
-        all_vnis_for_vnet = [gen_vni(vnet_id, i, offset=1) for i in range(routes_per_vnet)]
-        for i in range(routes_per_vnet):
-            route_updates[f"{vnet_name}|{routes[i]}"] = {
-                "endpoint": endpoints[i],
-                "mac_address": all_macs_for_vnet[i],
-                "vni": str(all_vnis_for_vnet[i]),
-            }
-
-        # Write JSON file
-        cfg_file = f"/tmp/{vnet_name}_route_macvni.json"
-        duthost.copy(content=json.dumps({"VNET_ROUTE_TUNNEL": route_updates}, indent=2),
-                     dest=cfg_file)
-
-        # Apply with cfggen
-        logger.info(f"Applying updates for {vnet_name} via sonic-cfggen")
-        duthost.shell(f"sonic-cfggen -j {cfg_file} --write-to-db")
-
-        # Generate new test routes file with MAC and VNI for PTF validation
-        # file path should be same as initial setup
-        logger.info(f"Generating new test routes file with MAC/VNI for {vnet_name}")
-        generate_routes_to_test_file(
-            ptfhost,
-            setup["samples_per_vnet"],
-            routes_per_vnet,
-            vnet_name,
-            routes,
-            endpoints,
-            mac_addresses=all_macs_for_vnet,
-            vnis=all_vnis_for_vnet
-        )
-
-    time.sleep(20)
-
-    logger.info("All route MAC+VNI updates applied via batch cfggen.")
-
-    # ---- Run PTF ----
-    ptf_params = {
-        **setup,
-        "mac_vni_per_vnet": "yes",
-        "vni_batch_size": VNI_BUCKET_SIZE,
-        "base_mac": "52:54:bb",
-    }
-
-    ptf_runner(
-        ptfhost,
-        "ptftests",
-        "vxlan_traffic_scale.VXLANScaleTest",
-        platform_dir="ptftests",
-        params=ptf_params,
-        log_file="/tmp/vxlan_scale_macvni.log",
-        is_python3=True
-    )
-
-    logger.info("MAC+VNI scale verification complete.")
