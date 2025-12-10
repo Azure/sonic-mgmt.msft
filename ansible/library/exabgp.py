@@ -197,7 +197,6 @@ startsecs=1
 numprocs=1
 '''
 
-
 def exec_command(module, cmd, ignore_error=False, msg="executing command"):
     rc, out, err = module.run_command(cmd)
     if not ignore_error and rc != 0:

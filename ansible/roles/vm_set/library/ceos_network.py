@@ -369,6 +369,7 @@ def main():
             fp_mtu=dict(required=False, type='int', default=DEFAULT_MTU),
             max_fp_num=dict(required=False, type='int',
                             default=NUM_FP_VLANS_PER_FP),
+            vm_server_ip=dict(required=False, type='str'),
         ),
         supports_check_mode=False)
 

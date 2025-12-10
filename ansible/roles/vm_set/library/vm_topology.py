@@ -570,6 +570,37 @@ class VMTopology(object):
         self.add_ip_to_docker_if(BP_PORT_NAME, mgmt_ip, mgmt_ipv6)
         VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
 
+    def add_bp_port_with_vlans_to_docker(self, vlan_data, vrf_map, multi_vrf_config):
+        rev_vrf_map = {}
+        for peer, vrfs in vrf_map.items():
+            for vrf in vrfs:
+                rev_vrf_map[vrf] = peer
+
+        self.add_br_if_to_docker(
+            self.bp_bridge, PTF_BP_IF_TEMPLATE % self.vm_set_name, BP_PORT_NAME)
+
+        for vrf, data in vlan_data.items():
+            vlan_id = data.get("vlan")
+            addr = data.get("ipv4")
+            addr6 = data.get("ipv6")
+
+            if vlan_id:
+                peer = rev_vrf_map[vrf]
+                vlan_intf_name = "%s.%d" % (BP_PORT_NAME, vlan_id)
+                config = multi_vrf_config[peer]["vrf"][vrf]["Vlan{}".format(vlan_id)]
+                VMTopology.cmd("nsenter -t %s -n ip link add link %s name %s type vlan id %d" %
+                               (self.pid, BP_PORT_NAME, vlan_intf_name, vlan_id))
+                if addr:
+                    VMTopology.cmd(
+                        "nsenter -t %s -n ip address add %s dev %s" % (self.pid, addr, vlan_intf_name))
+                if addr6:
+                    VMTopology.cmd(
+                        "nsenter -t %s -n ip -6 address add %s dev %s" % (self.pid, addr6, vlan_intf_name))
+
+                VMTopology.iface_up(vlan_intf_name, pid=self.pid)
+
+        VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
+
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
         # add unique suffix to int_if to support multiple tasks run concurrently
         tmp_int_if = int_if + \
@@ -2219,6 +2250,9 @@ def main():
                                      default=max(MIN_THREAD_WORKER_COUNT,
                                                  multiprocessing.cpu_count() // 8)),
             batch_mode=dict(required=False, type='bool', default=False)
+            multi_vrf=dict(required=False, type='bool', default=False),
+            multi_vrf_data=dict(required=False, type='dict', default={}),
+            topo_config=dict(required=False, type='dict', default={}),
         ),
         supports_check_mode=False)
 
@@ -2262,7 +2296,10 @@ def main():
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
                                   'mgmt_bridge',
-                                  'duts_fp_ports'], cmd)
+                                  'duts_fp_ports',
+                                  'multi_vrf',
+                                  'multi_vrf_data',
+                                  'topo_config'], cmd)
 
             vm_set_name = module.params['vm_set_name']
             duts_fp_ports = module.params['duts_fp_ports']
@@ -2292,6 +2329,9 @@ def main():
             ptf_extra_mgmt_ip_addr = module.params['ptf_extra_mgmt_ip_addr']
             mgmt_bridge = module.params['mgmt_bridge']
             netns_mgmt_ip_addr = module.params['netns_mgmt_ip_addr']
+            is_multi_vrf = module.params['multi_vrf']
+            multi_vrf_data = module.params['multi_vrf_data']
+            config = module.params['topo_config']
 
             # Add management port to PTF docker and configure IP
             net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw,
@@ -2311,7 +2351,13 @@ def main():
                 net.add_injected_VM_ports_to_docker()
                 net.bind_fp_ports(batch_mode=batch_mode)
                 net.bind_vm_backplane()
-                net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
+                if is_multi_vrf:
+                    vlan_data = multi_vrf_data.get("ptf_backplane_addrs", {})
+                    vrf_map = multi_vrf_data.get("convergence_mapping", {})
+                    multi_vrf_config = multi_vrf_data.get("converged_peers", {})
+                    net.add_bp_port_with_vlans_to_docker(vlan_data, vrf_map, multi_vrf_config)
+                else:
+                    net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
 
             if net.netns:
                 net.add_network_namespace()
