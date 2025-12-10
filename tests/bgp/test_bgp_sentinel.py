@@ -181,11 +181,12 @@ def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr, is_i
 
             if is_ipv6_only:
                 ptfhost.shell("ip -6 route add {}/128 via {}".format(lo_ipv6_addr, gateway),
-                                    module_ignore_errors=True)
+                              module_ignore_errors=True)
                 time.sleep(5)
                 ipv6_res = ptfhost.shell("ping {} -c 3 -I backplane".format(lo_ipv6_addr), module_ignore_errors=True)
                 if ipv6_res['rc'] != 0:
-                    ptfhost.shell("ip -6 route del {}/128 via {}".format(lo_ipv6_addr, gateway), module_ignore_errors=True)
+                    ptfhost.shell("ip -6 route del {}/128 via {}".format(lo_ipv6_addr, gateway),
+                                  module_ignore_errors=True)
                 else:
                     ipv6_nh = v['ipv6']
             else:
@@ -196,7 +197,6 @@ def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr, is_i
                     ptfhost.shell("ip route del {} via {}".format(lo_ipv6_addr, gateway), module_ignore_errors=True)
                 else:
                     ipv6_nh = v['ipv6']
-
 
     return ipv4_nh, ipv6_nh
 
