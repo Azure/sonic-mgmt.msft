@@ -2,6 +2,7 @@ import logging
 import pytest
 import re
 import ipaddress
+from copy import deepcopy
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.utilities import wait, wait_until
@@ -81,6 +82,11 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     portchannel_members = [member for portchannel in list(minigraph_portchannels.values())
                            for member in portchannel['members']]
     physical_interfaces = [item for item in up_ports if item not in portchannel_members]
+
+    multi_vrf_info = None
+    if tbinfo.get('use_converged_peers', False):
+        multi_vrf_info = deepcopy(tbinfo['topo']['properties']['convergence_data'])
+
     setup_info = {
          'default_interfaces': default_interfaces,
          'minigraph_facts': minigraph_facts,
@@ -90,7 +96,8 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
          'port_alias_map': port_alias_map,
          'port_speed': port_speed,
          'up_ports': up_ports,
-         'upport_alias_list': upport_alias_list
+         'upport_alias_list': upport_alias_list,
+         'multi_vrf_info': multi_vrf_info,
     }
 
     yield setup_info
@@ -265,15 +272,26 @@ class TestShowLLDP():
         lldp_table = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
         logger.info('lldp_table:\n{}'.format(lldp_table))
 
+        vrf_map = {}
+        multi_vrf = False
+        if setup.get('multi_vrf_info'):
+            multi_vrf = True
+            for host, vrfs in setup['multi_vrf_info']['convergence_mapping'].items():
+                for vrf in vrfs:
+                    vrf_map[vrf] = host
+
         if mode == 'alias':
             for alias in lldp_interfaces['alias']:
-                assert re.search(r'{}.*\s+{}'
-                                 .format(alias, minigraph_neighbors[setup['port_alias_map'][alias]]['name']),
-                                 lldp_table) is not None
+                peer = minigraph_neighbors[setup['port_alias_map'][alias]]['name']
+                if multi_vrf:
+                    peer = vrf_map[peer]
+                assert re.search(r'{}.*\s+{}'.format(alias, peer), lldp_table) is not None
         elif mode == 'default':
             for intf in lldp_interfaces['interface']:
-                assert re.search(r'{}.*\s+{}'.format(intf, minigraph_neighbors[intf]['name']),
-                                 lldp_table) is not None
+                peer= minigraph_neighbors[intf]['name']
+                if multi_vrf:
+                    peer = vrf_map[peer]
+                assert re.search(r'{}.*\s+{}'.format(intf, peer), lldp_table) is not None
 
     def test_show_lldp_neighbor(self, setup, setup_config_mode, lldp_interfaces):
         """

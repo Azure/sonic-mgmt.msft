@@ -9,8 +9,10 @@ from ipaddress import ip_address
 from typing import Optional, Union
 import yaml
 
+
 CEOSLAB_INTF_LIMIT = 127 # 128, minus one for backplane interface
 BASE_VLAN_ID = 2000
+
 
 class ListIndentDumper(yaml.Dumper):
     def increase_indent(self, flow: bool = False, indentless: bool = False) -> None:
