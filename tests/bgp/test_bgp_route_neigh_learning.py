@@ -20,7 +20,7 @@ def add_route_to_nbr(data, name):
     vrf = "default"
     if data["nbr"][name].get("is_multi_vrf_peer", False):
         vrf = name
-        loopback += data["nbr"][name]["multi_vrf_data"]["intf_offset_mapping"]
+        loopback += data["nbr"][name]["multi_vrf_data"]["intf_offset"]
 
     bgp_as_num = data['bgp'][name]
     # add a route in the neighbor T1 eos device
@@ -44,7 +44,7 @@ def rm_route_from_nbr(data, name):
     vrf = "default"
     if data["nbr"][name].get("is_multi_vrf_peer", False):
         vrf = name
-        loopback += data["nbr"][name]["multi_vrf_data"]["intf_offset_mapping"]
+        loopback += data["nbr"][name]["multi_vrf_data"]["intf_offset"]
 
     bgp_as_num = data['bgp'][name]
     # remove the route in the neighbor T1 eos device

@@ -6,13 +6,11 @@ in the topology
 
 from copy import deepcopy
 from ipaddress import ip_address
-from typing import Optional, Union
+from typing import Dict, List, Optional, Union
 import yaml
-
 
 CEOSLAB_INTF_LIMIT = 127 # 128, minus one for backplane interface
 BASE_VLAN_ID = 2000
-
 
 class ListIndentDumper(yaml.Dumper):
     def increase_indent(self, flow: bool = False, indentless: bool = False) -> None:
@@ -22,7 +20,7 @@ class ListIndentDumper(yaml.Dumper):
 class SonicTopoConverger:
 
 
-    def __init__(self, topology: dict[str, Union[int, str]], file_out: str) -> None:
+    def __init__(self, topology: Dict[str, Union[int, str]], file_out: str) -> None:
         self.topo = topology
         self.converged_topo = {
                 "topology": {},
@@ -87,7 +85,7 @@ class SonicTopoConverger:
                     self.prime_device_mapping[prime].append(device)
 
 
-    def converge_vms(self) -> dict[str, Union[int, str]]:
+    def converge_vms(self) -> Dict[str, Union[int, str]]:
         '''
         Helper to converge the "VMs" section of the input topology, where vlans and
         offsets are defined, per cEOSLab instance.
@@ -119,8 +117,8 @@ class SonicTopoConverger:
 
 
     def converge_peers(self,
-                       if_index_mapping: dict[str, list[int]],
-                       offset_mapping: dict[str, int]) -> dict[str, Union[int, str]]:
+                       if_index_mapping: Dict[str, List[int]],
+                       offset_mapping: Dict[str, int]) -> Dict[str, Union[int, str]]:
         '''
         Helper to converge the section of the input topology where the actual cEOSLab
         instance configuration is laid out.  This is where interface and BGP
@@ -136,7 +134,7 @@ class SonicTopoConverger:
             new_peers[dev] = {"properties": properties,
                              "vrf": {},
                              "bgp": {"asn": asn},
-                             "intf_offset_mapping": {}}
+                             "intf_mapping": {}}
 
         # Backplane L3 addresses are laid out for clarity-- addresses with odd
         # least-signifcant octets or hextets are assigned to the interfaces of the
@@ -158,6 +156,7 @@ class SonicTopoConverger:
                 peer = peers[peer_name]
                 vrf_name = peer_name
                 peer_intfs = peer["interfaces"]
+                orig_intf_map = {}
 
                 intf_index = i + intf_counter_base
                 vrf = { f"Vlan{vlan_id}": {}}
@@ -165,14 +164,20 @@ class SonicTopoConverger:
                 for intf, config in peer_intfs.items():
                     if "Ethernet" not in intf:
                         continue
-                    vrf[f"Ethernet{eth_intf_index}"] = deepcopy(peer_intfs[intf])
+                    eth_intf = f"Ethernet{eth_intf_index}"
+                    vrf[eth_intf] = deepcopy(peer_intfs[intf])
+                    orig_intf_map[intf] = eth_intf
                     eth_intf_index += 1
 
                 if "Port-Channel1" in peer_intfs:
-                    vrf[f"Port-Channel{intf_index}"] = deepcopy(
+                    po_intf = f"Port-Channel{intf_index}"
+                    orig_intf_map["Port-Channel1"] = po_intf
+                    vrf[po_intf] = deepcopy(
                             peer_intfs["Port-Channel1"])
                 if "Loopback0" in peer_intfs:
-                    vrf[f"Loopback{intf_index}"] = deepcopy(peer_intfs["Loopback0"])
+                    lo_intf = f"Loopback{intf_index}"
+                    orig_intf_map["Loopback0"] = lo_intf
+                    vrf[lo_intf] = deepcopy(peer_intfs["Loopback0"])
 
                 new_peers[prime_dev]["vrf"][vrf_name] = vrf
 
@@ -191,11 +196,11 @@ class SonicTopoConverger:
                     bp_addr_data["vlan"] = vlan_id
                     bp_addrs[peer_name] = bp_addr_data
 
-                if not new_peers[prime_dev]["intf_offset_mapping"]:
+                if not new_peers[prime_dev]["intf_mapping"]:
                     # If we are filling in a prime_dev for the first time, reset the
                     # offset
                     offset = 0
-                new_peers[prime_dev]["intf_offset_mapping"][vrf_name] = offset
+                new_peers[prime_dev]["intf_mapping"][vrf_name] = {"offset": offset, "orig_intf_map": orig_intf_map}
                 offset += 1
                 peer_bp_addr_offset += 2
                 ptf_bp_addr_offset += 2
@@ -265,7 +270,7 @@ class SonicTopoConverger:
                       Dumper=ListIndentDumper, sort_keys=False)
 
 
-def converge_testbed(input_file:str, output_file: str) -> None:
+def converge_testbed(input_file: str, output_file: str) -> None:
     with open(input_file, "r", encoding="utf-8") as in_file:
         topo = yaml.safe_load(in_file)
     converger = SonicTopoConverger(topo, output_file)

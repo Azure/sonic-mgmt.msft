@@ -685,7 +685,8 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                 primary_asn = tbinfo['topo']['properties']['configuration'][multi_vrf_primary_host]['bgp']['asn']
                 multi_vrf_data = {'vrf': neighbor_name,
                                   'intf_config': copy.deepcopy(primary_data['vrf'][neighbor_name]),
-                                  'intf_offset_mapping': primary_data['intf_offset_mapping'][neighbor_name],
+                                  'intf_offset': primary_data['intf_mapping'][neighbor_name]["offset"],
+                                  'orig_intf_map': primary_data['intf_mapping'][neighbor_name]["orig_intf_map"],
                                   'primary_host': multi_vrf_primary_host,
                                   'primary_host_asn': primary_asn,
                                   'intf_index_mapping': copy.deepcopy(data['interface_index_mapping'][neighbor_name]),

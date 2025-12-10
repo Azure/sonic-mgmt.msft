@@ -2249,7 +2249,7 @@ def main():
             thread_worker_count=dict(required=False, type='int',
                                      default=max(MIN_THREAD_WORKER_COUNT,
                                                  multiprocessing.cpu_count() // 8)),
-            batch_mode=dict(required=False, type='bool', default=False)
+            batch_mode=dict(required=False, type='bool', default=False),
             multi_vrf=dict(required=False, type='bool', default=False),
             multi_vrf_data=dict(required=False, type='dict', default={}),
             topo_config=dict(required=False, type='dict', default={}),
@@ -2406,6 +2406,9 @@ def main():
             duts_fp_ports = module.params['duts_fp_ports']
             duts_name = module.params['duts_name']
             is_multi_duts = True if len(duts_name) > 1 else False
+            is_multi_vrf = module.params['multi_vrf']
+            multi_vrf_data = module.params['multi_vrf_data']
+            config = module.params['topo_config']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (

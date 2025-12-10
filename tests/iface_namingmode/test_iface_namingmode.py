@@ -288,7 +288,7 @@ class TestShowLLDP():
                 assert re.search(r'{}.*\s+{}'.format(alias, peer), lldp_table) is not None
         elif mode == 'default':
             for intf in lldp_interfaces['interface']:
-                peer= minigraph_neighbors[intf]['name']
+                peer = minigraph_neighbors[intf]['name']
                 if multi_vrf:
                     peer = vrf_map[peer]
                 assert re.search(r'{}.*\s+{}'.format(intf, peer), lldp_table) is not None
