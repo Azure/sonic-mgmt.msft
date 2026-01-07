@@ -31,7 +31,7 @@ def get_lag_ids_from_chassis_db(duthosts):
     return lag_ids
 
 
-def get_lag_id_from_chassis_db(duthosts):
+def get_lag_id_from_chassis_db(duthosts, portchannel=TMP_PC):
     """
     Get LAG id for a lag form CHASSIS_DB
     Args:
@@ -50,9 +50,9 @@ def get_lag_id_from_chassis_db(duthosts):
         voqdb = VoqDbCli(node)
         lag_list = voqdb.get_lag_list()
         for lag in lag_list:
-            if TMP_PC in lag:
+            if portchannel in lag:
                 lag_id = voqdb.hget_key_value(lag, "lag_id")
-                logging.info("LAG id for lag {} is {}".format(TMP_PC, lag_id))
+                logging.info("LAG id for lag {} is {}".format(portchannel, lag_id))
                 return lag_id
 
         pytest.fail("LAG id for lag {} is not preset in CHASSIS_DB".format(TMP_PC))
@@ -321,7 +321,7 @@ def verify_lag_member_in_remote_asic_db(remote_dut, lag_id, pc_members, deleted=
         verify_lag_member_in_asic_db(dut.asics, lag_id, pc_members, deleted)
 
 
-def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
+def verify_lag_member_in_chassis_db(duthosts, members, portchannel=TMP_PC, deleted=False):
     """
     verifies lag members for a lag exist in chassis db
     cmd = 'sonic-db-cli CHASSIS_APP_DB KEYS "*SYSTEM_LAG_MEMBER_TABLE*|PortChannel0051*|Ethernet*"'
@@ -332,7 +332,7 @@ def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
         if deleted:
             for member in members:
                 exist = False
-                pattern = "{}.*{}".format(TMP_PC, member)
+                pattern = "{}.*{}".format(portchannel, member)
                 for lag_member in lag_member_list:
                     if re.search(pattern, lag_member):
                         exist = True
@@ -347,7 +347,7 @@ def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
         else:
             for member in members:
                 exist = False
-                pattern = "{}.*{}".format(TMP_PC, member)
+                pattern = "{}.*{}".format(portchannel, member)
                 for lag_member in lag_member_list:
                     if re.search(pattern, lag_member):
                         exist = True
