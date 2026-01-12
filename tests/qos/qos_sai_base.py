@@ -1001,7 +1001,6 @@ class QosSaiBase(QosBase):
         ip_version = 6 if ip_type == "ipv6" else 4
         vlan_info = {}
 
-
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):
             # Only single asic is supported for this scenario, so use src_dut and src_asic - which will be the same
