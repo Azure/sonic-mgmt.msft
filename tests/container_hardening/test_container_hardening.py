@@ -20,6 +20,7 @@ PRIVILEGED_CONTAINERS = [
     "syncd",
     "gbsyncd",
     "swss",
+    "gnmi",
 ]
 
 
