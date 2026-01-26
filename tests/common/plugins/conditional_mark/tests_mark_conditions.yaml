@@ -2,7 +2,6 @@
 #####        Define Anchors       #####
 #######################################
 
-
 # yaml files don't let an anchor be defined outside a yaml entry, so this block just
 # creates an entry for pre-test but ensure it will always run, then the other
 # conditions can just be used to define anchors for further use in this file
