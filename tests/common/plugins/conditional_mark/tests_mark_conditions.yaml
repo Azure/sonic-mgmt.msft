@@ -1967,9 +1967,11 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
 #######################################
 fib/test_fib.py:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Skip on t1-isolated-d32/128 topos or due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17930'
+    conditions_logical_operator: OR
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17930 and topo_name in ['t1-isolated-d28u1']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -2204,6 +2206,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
       - "release in ['202211']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22295 and platform in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -3850,10 +3853,11 @@ snmp/test_snmp_queue.py:
 snmp/test_snmp_queue_counters.py:
   skip:
     conditions_logical_operator: OR
-    reason: "Have an known issue on kvm testbed / Unsupported in MGFX topos"
+    reason: "Have an known issue on kvm testbed / Unsupported in MGFX topos or issue #17929 on Mellanox platform""
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
       - "topo_type in ['m0', 'mx', 'm1']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17929 and asic_type in ['mellanox']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
