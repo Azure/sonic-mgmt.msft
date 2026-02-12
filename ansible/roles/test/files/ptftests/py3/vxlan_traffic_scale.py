@@ -2,6 +2,7 @@ import json
 import ptf
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
+from ipaddress import IPv4Address
 import logging
 import ptf.packet as scapy
 from ptf.testutils import (
@@ -32,6 +33,18 @@ class VXLANScaleTest(BaseTest):
         self.vnet_ptf_map = self.test_params["vnet_ptf_map"]
         self.mac_vni_per_vnet = self.test_params.get("mac_vni_per_vnet", "")
         self.routes_per_vni = self.test_params.get("vni_batch_size", 1000)
+        self.endpoint_offset = self.test_params.get("endpoint_offset", 0)
+        self.base_mac = self.test_params.get("base_mac", "52:54:aa")
+        self.vni_offset = self.test_params.get("vni_offset", 0)
+
+        self.endpoints = {}
+        self.routes = {}
+        for vnet_name, mappings in self.vnet_ptf_map.items():
+            self.routes[vnet_name], self.endpoints[vnet_name] = self._det_routes_and_endpoint(
+                vnet_id=mappings["vnet_id"],
+                count=self.routes_per_vnet,
+                endpoint_offset=self.endpoint_offset
+            )
 
         # egress interfaces can be list or single int (for backward compat)
         egress_param = self.test_params.get("egress_ptf_if", [])
@@ -59,14 +72,20 @@ class VXLANScaleTest(BaseTest):
             f"samples_per_vnet={self.samples_per_vnet}, egress_ptf_if={self.egress_ptf_if}"
         )
 
-    def _det_mac(self, vnet_id, idx):
+    def _det_routes_and_endpoint(self, vnet_id: int, count: int, endpoint_offset=0):
+        base = int(IPv4Address(f"30.{vnet_id}.0.0"))
+        endpoint_base = int(IPv4Address(f"100.{vnet_id}.0.0")) + endpoint_offset
+        return [f"{IPv4Address(base + i)}/32" for i in range(count)], \
+               [f"{IPv4Address(endpoint_base + i)}" for i in range(count)]
+
+    def _det_mac(self, vnet_id, idx, base_mac="52:54:aa"):
         hi = (idx >> 8) & 0xFF
         lo = idx & 0xFF
-        return f"52:54:aa:{vnet_id:02x}:{hi:02x}:{lo:02x}"
+        return f"{base_mac}:{vnet_id:02x}:{hi:02x}:{lo:02x}"
 
-    def _det_vni(self, vnet_id, idx, group_size):
+    def _det_vni(self, vnet_id, idx, group_size, offset=0):
         bucket = idx // group_size
-        return self.vnet_base + (vnet_id * 100) + bucket
+        return self.vnet_base + (vnet_id * group_size) + bucket + offset
 
     def _next_port(self, key="sport"):
         """Simple port generator for varying TCP ports."""
@@ -107,7 +126,7 @@ class VXLANScaleTest(BaseTest):
         m.set_do_not_care_scapy(scapy.UDP, "sport")
         return m
 
-    def _build_packets_for_test(self, ingress_port, dst_ip, src_ip, programmed_mac, vni):
+    def _build_packets_for_test(self, ingress_port, dst_ip, src_ip, programmed_mac, vni, endpoint):
         """
         Returns: (inner_packet, masked_expected_encap)
         """
@@ -134,7 +153,7 @@ class VXLANScaleTest(BaseTest):
         inner_exp[scapy.IP].ttl = 63
 
         # Masked expected encap
-        masked = self.build_masked_encap(inner_exp, vni)
+        masked = self.build_masked_encap(inner_exp, vni, endpoint)
         return inner, masked
 
     def _send_and_verify(self, vnet_name, ingress_port, inner_pkt, exp_pkt, failures, log_prefix):
@@ -157,21 +176,15 @@ class VXLANScaleTest(BaseTest):
             vnet_id = mapping["vnet_id"]
             ingress = int(mapping["ptf_ifindex"])
 
-            # sample N routes per VNET
-            sample_indices = random.sample(
-                range(self.routes_per_vnet),
-                min(self.samples_per_vnet, self.routes_per_vnet)
-            )
-
-            for idx in sample_indices:
-                dst_ip = f"30.{vnet_id}.{idx // 256}.{idx % 256}"
+            for idx in range(self.routes_per_vnet):
+                dst_ip = self.routes[vnet_name][idx]
                 src_ip = f"201.0.{vnet_id}.101"
 
-                mac = self._det_mac(vnet_id, idx)
-                vni = self._det_vni(vnet_id, idx, self.routes_per_vni)
+                mac = self._det_mac(vnet_id, idx, self.base_mac)
+                vni = self._det_vni(vnet_id, idx, self.routes_per_vni, self.vni_offset)
 
                 inner, exp = self._build_packets_for_test(
-                    ingress, dst_ip, src_ip, mac, vni
+                    ingress, dst_ip, src_ip, mac, vni, self.endpoints[vnet_name][idx]
                 )
 
                 self._send_and_verify(vnet_name, ingress, inner, exp,
@@ -275,12 +288,13 @@ class VXLANScaleTest(BaseTest):
                 f"DUT intf={dut_intf_name}, VNI={vni}"
             )
 
-            for i in range(self.samples_per_vnet):
-                dst_ip = self.routes_to_test[vnet_name][i]["route"]
+            for i in range(self.routes_per_vnet):
+                dst_ip = self.routes[vnet_name][i]
                 ip_src = f"201.0.{vnet_id}.101"
 
                 inner, masked = self._build_packets_for_test(
-                    ingress_port, dst_ip, ip_src, self.mac_switch, vni)
+                    ingress_port, dst_ip, ip_src, self.mac_switch, vni, self.endpoints[vnet_name][i]
+                )
 
                 self._send_and_verify(vnet_name, ingress_port, inner, masked,
                                       failures, "SCALE")
