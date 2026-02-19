@@ -198,80 +198,6 @@ class VXLANScaleTest(BaseTest):
         if total > 0:
             self.fail(f"MAC+VNI validation failed ({total} failures).")
 
-    def runTest(self):
-        self.logger.info("Starting VXLAN scale TCP verification test...")
-        self.dataplane.flush()
-        if self.mac_vni_per_vnet:
-            return self.run_mac_vni_per_vnet_test()
-
-        src_mac = self.dataplane.get_mac(0, ingress_port)
-
-        # Base inner packet
-        inner = simple_tcp_packet(
-            eth_dst=self.router_mac,
-            eth_src=src_mac,
-            ip_dst=dst_ip,
-            ip_src=src_ip,
-            ip_id=105,
-            ip_ttl=64,
-            tcp_sport=self._next_port("sport"),
-            tcp_dport=self._next_port("dport"),
-            pktlen=100,
-        )
-
-        # Expected inner after DUT rewrite
-        inner_exp = inner.copy()
-        inner_exp[scapy.Ether].src = self.router_mac
-        inner_exp[scapy.Ether].dst = programmed_mac
-        inner_exp[scapy.IP].ttl = 63
-
-        # Masked expected encap
-        masked = self.build_masked_encap(inner_exp, vni, endpoint)
-        return inner, masked
-
-    def _send_and_verify(self, vnet_name, ingress_port, inner_pkt, exp_pkt, failures, log_prefix):
-        try:
-            send_packet(self, ingress_port, inner_pkt)
-            verify_packet_any_port(self, exp_pkt, self.egress_ptf_if, timeout=3)
-            self.logger.info(f"[{log_prefix}] {vnet_name} PASSED")
-        except Exception as e:
-            failures[vnet_name] += 1
-            self.logger.error(
-                f"[{log_prefix} FAIL] {vnet_name}: ingress={ingress_port}, error={repr(e)}"
-            )
-
-    def run_mac_vni_per_vnet_test(self):
-        self.logger.info("=== Running deterministic MAC+VNI validation ===")
-
-        failures = {v: 0 for v in self.vnet_ptf_map}
-
-        for vnet_name, mapping in self.vnet_ptf_map.items():
-            vnet_id = mapping["vnet_id"]
-            ingress = int(mapping["ptf_ifindex"])
-
-            for idx in range(self.samples_per_vnet):
-                dst_ip = self.routes_to_test[vnet_name][idx]["route"]
-                src_ip = f"201.0.{vnet_id}.101"
-
-                mac = self.routes_to_test[vnet_name][idx]["mac_address"]
-                vni = self.routes_to_test[vnet_name][idx]["vni"]
-                endpoint = self.routes_to_test[vnet_name][idx]["endpoint"]
-
-                inner, exp = self._build_packets_for_test(
-                    ingress, dst_ip, src_ip, mac, vni, endpoint
-                )
-
-                self._send_and_verify(vnet_name, ingress, inner, exp,
-                                      failures, "MAC+VNI")
-
-        # Summary
-        total = sum(failures.values())
-        for n, f in failures.items():
-            self.logger.info(f"{n}: {f} failures")
-
-        if total > 0:
-            self.fail(f"MAC+VNI validation failed ({total} failures).")
-
     def run_endpoint_test(self):
         # Track failures per VNET
         failures = {vnet_name: 0 for vnet_name in self.vnet_ptf_map}
@@ -318,4 +244,4 @@ class VXLANScaleTest(BaseTest):
         if self.mac_vni_per_vnet:
             return self.run_mac_vni_per_vnet_test()
         else:
-            return self.run_endpoint_test()
+            return self.run_endpoint_test()        
