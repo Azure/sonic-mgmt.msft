@@ -67,8 +67,9 @@ def get_asic_db_values(duthost, fields):
             continue
         wred_data = ast.literal_eval(wred_data)
         for field in fields:
-            value = int(wred_data[WRED_MAPPING[field]])
-            asic_db_values[oid][field] = value
+            if WRED_MAPPING[field] in wred_data:
+                value = int(wred_data[WRED_MAPPING[field]])
+                asic_db_values[oid][field] = value
     return asic_db_values
 
 
@@ -227,8 +228,11 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
         wred_green_enabled = ecn_data.get("wred_green_enable", "false").lower() == "true"
         if not wred_green_enabled:
             logger.info(f"Not modifying the WRED profile {wred_profile} since 'wred_green_enable' is false.")
-        delta = determine_delta_values(ecn_data, fields, wred_green_enabled)
         new_values[wred_profile] = {}
+        if not any(key in ecn_data for key in fields):
+            logger.info(f"No fields in '{fields}' found in WRED profile {wred_profile}")
+            continue
+        delta = determine_delta_values(ecn_data, fields, wred_green_enabled)
         for field in fields:
             value = int(ecn_data[field])
             value += delta[field]
