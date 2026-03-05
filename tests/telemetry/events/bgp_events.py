@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import ipaddress
 import logging
 import time
 
@@ -54,21 +55,21 @@ def drop_tcp_packets(duthost, tbinfo):
 
     logger.info("Adding rule to drop TCP packets to test bgp-notification")
 
-    ret = duthost.shell("iptables -I INPUT -p tcp --dport 179 -j DROP")
+    ret = duthost.shell("{} -I INPUT -p tcp --dport 179 -j DROP".format(iptables_cmd))
     assert ret["rc"] == 0, "Unable to add DROP rule to iptables"
 
-    ret = duthost.shell("iptables -I INPUT -p tcp --sport 179 -j DROP")
+    ret = duthost.shell("{} -I INPUT -p tcp --sport 179 -j DROP".format(iptables_cmd))
     assert ret["rc"] == 0, "Unable to add DROP rule to iptables"
 
-    ret = duthost.shell("iptables -L")
+    ret = duthost.shell("{} -L".format(iptables_cmd))
     assert ret["rc"] == 0, "Unable to list iptables rules"
 
     time.sleep(holdtime_timer_ms / 1000)  # Give time for hold timer expiry event, val from configured bgp neighbor info
 
-    ret = duthost.shell("iptables -D INPUT -p tcp --dport 179 -j DROP")
+    ret = duthost.shell("{} -D INPUT -p tcp --dport 179 -j DROP".format(iptables_cmd))
     assert ret["rc"] == 0, "Unable to remove DROP rule from iptables"
 
-    ret = duthost.shell("iptables -D INPUT -p tcp --sport 179 -j DROP")
+    ret = duthost.shell("{} -D INPUT -p tcp --sport 179 -j DROP".format(iptables_cmd))
     assert ret["rc"] == 0, "Unable to remove DROP rule from iptables"
 
 
