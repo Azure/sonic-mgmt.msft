@@ -153,7 +153,6 @@ def run_bgp_neighbor_route_learning(duthosts, enum_frontend_dut_hostname, data):
     for name in data['T1']:
         bgp_as_num = data['bgp'][name]
         nbrhost = data['nbr'][name]['host']
-        cmds = []
         # add a route in the neighbor T1 eos device
         if isinstance(nbrhost, EosHost):
             add_route_to_nbr(data, name, prefix, mask, afi_cfg["afi_cmd_eos"], afi_cfg["loopback_cmd_eos"])
