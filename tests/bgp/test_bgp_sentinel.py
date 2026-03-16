@@ -485,7 +485,7 @@ def bgp_community(sentinel_community, request):
 
 
 @pytest.fixture(scope="module", params=['IPv4', 'IPv6'])
-def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_community, request):
+def prepare_bgp_sentinel_routes(rand_selected_dut, tbinfo, common_setup_teardown, bgp_community, request):
     duthost = rand_selected_dut
     ptfip, lo_ipv4_addr, lo_ipv6_addr, ipv4_nh, ipv6_nh, ibgp_sessions, ptf_bp_v4, ptf_bp_v6 = common_setup_teardown
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
