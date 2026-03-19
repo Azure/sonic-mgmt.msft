@@ -1301,7 +1301,7 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
-      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305', '202405']"
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 ######  test_secure_upgrade.py  #######
@@ -1350,3 +1350,18 @@ platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
       - https://github.com/sonic-net/sonic-buildimage/issues/18231
+
+#######################################
+######   test_platform_dpu.py   #######
+#######################################
+smartswitch/platform_tests/test_platform_dpu.py:
+  skip:
+    reason: "Skip for non-smartswitch topology"
+    conditions:
+      - "is_smartswitch==False"
+
+smartswitch/platform_tests/test_reload_dpu.py:
+  skip:
+    reason: "Skip for non-smartswitch topology"
+    conditions:
+      - "is_smartswitch==False"
