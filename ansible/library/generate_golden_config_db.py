@@ -355,7 +355,7 @@ class GenerateGoldenConfigDBModule(object):
             if "Server" in config.get("description", ""):
                 config["link_training"] = "on"
 
-        return json.dumps(golden_config, indent=4)
+        return json.dumps({'PORT': golden_config['PORT']}, indent=4)
 
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
