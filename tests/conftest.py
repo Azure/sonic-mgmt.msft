@@ -16,6 +16,7 @@ import threading
 import pathlib
 import importlib
 import inspect
+import concurrent.futures.thread as cft
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -115,6 +116,11 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.fixtures.duthost_utils')
 
 
+# NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
+if sys.version_info < (3, 12, 8):
+    os.register_at_fork(after_in_child=cft._threads_queues.clear)
+
+
 patch_ansible_worker_process()
 fix_logging_handler_fork_lock()
 
@@ -196,6 +202,8 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--skip_sanity", action="store_true", default=False,
                      help="Skip sanity check")
+    parser.addoption("--skip_pre_sanity", action="store_true", default=False,
+                     help="Skip pre-test sanity check")
     parser.addoption("--allow_recover", action="store_true", default=False,
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
@@ -449,6 +457,9 @@ def get_specified_device_info(request, device_pattern):
         return [get_target_hostname(request)]
 
     host_pattern = request.config.getoption(device_pattern)
+    # When no DPUs specified (None/"None"/empty), return [] so DPU tests skip instead of fail
+    if device_pattern == '--dpu-pattern' and (host_pattern is None or host_pattern == 'None' or host_pattern == ''):
+        return []
     if host_pattern == 'all':
         if device_pattern == '--dpu-pattern':
             testbed_duts = [dut for dut in testbed_duts if 'dpu' in dut]
@@ -1176,6 +1187,10 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
     if 'servers' in tbinfo:
         servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
                                   for value in tbinfo['servers'].values()}
+
+    # Check if logs directory exists, otherwise use /tmp
+    log_path = "logs" if os.path.isdir("logs") else "/tmp"
+
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
         res = localhost.announce_routes(
@@ -1183,7 +1198,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             ptf_ip=ptf_ip,
             action='generate',
             path="../ansible/",
-            log_path="logs",
+            log_path=log_path,
             dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
         )
         if 'topo_routes' not in res:
@@ -3376,15 +3391,29 @@ def setup_pfc_test(
         if expected_vlan_ifaces:
             mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
 
-        # gather all vlan specific info
-        ip_index = 0 if ip_version == "IPv4" else 1
-        vlan_addr = mg_facts['minigraph_vlan_interfaces'][ip_index]['addr']
-        vlan_prefix = mg_facts['minigraph_vlan_interfaces'][ip_index]['prefixlen']
-        vlan_dev = mg_facts['minigraph_vlan_interfaces'][ip_index]['attachto']
+        # Select the VLAN interface matching the requested IP version.
+        expected_ip_ver = 4 if ip_version == "IPv4" else 6
+        vlan_iface = next(
+            (iface for iface in mg_facts['minigraph_vlan_interfaces']
+             if ip_interface(str(iface['addr'])).version == expected_ip_ver),
+            None
+        )
+        if vlan_iface is None:
+            msg = "No {} VLAN interface found in minigraph_vlan_interfaces: {}".format(
+                ip_version, mg_facts['minigraph_vlan_interfaces'])
+            logger.error(msg)
+            pytest.fail(msg)
+        vlan_addr = vlan_iface['addr']
+        vlan_prefix = vlan_iface['prefixlen']
+        vlan_dev = vlan_iface['attachto']
         vlan_ips = duthost.get_ip_in_range(
             num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix),
             exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
+        logger.debug(
+            "setup_pfc_test: ip_version={} vlan_addr={} vlan_prefix={} "
+            "vlan_dev={} vlan_ips={} vlan_nw={}".format(
+                ip_version, vlan_addr, vlan_prefix, vlan_dev, vlan_ips, vlan_nw))
 
     topo = tbinfo["topo"]["name"]
     # build the port list for the test
