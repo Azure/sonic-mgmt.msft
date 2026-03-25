@@ -372,3 +372,7 @@ r, ".* ERR syncd#syncd: .*SAI_API_QUEUE:_brcm_sai_xgs_queue_pkt_trim_get_clear_c
 
 # Ignore SRV6 error CSP CS00012419486
 r, ".* ERR syncd#syncd: .*SAI_API_SWITCH:sai_object_type_get_availability:\d+ availablity my_sid failed with error .*"
+
+# Ignore link-training failure status query errors during port state transitions
+# SAI cannot read LT registers while the port serdes is mid-transition
+r, ".* ERR swss\d*#orchagent:.*getPortLinkTrainingFailure: Failed to get LT failure status for .*"
