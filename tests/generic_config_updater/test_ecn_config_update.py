@@ -6,11 +6,10 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
-from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.common.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -228,6 +227,9 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
         if not wred_green_enabled:
             logger.info(f"Not modifying the WRED profile {wred_profile} since 'wred_green_enable' is false.")
         delta = determine_delta_values(ecn_data, fields, wred_green_enabled)
+        if all(delta[f] == 0 for f in fields):
+            logger.info(f"Skipping WRED profile {wred_profile}: all deltas are 0, no real value change possible.")
+            continue
         new_values[wred_profile] = {}
         for field in fields:
             value = int(ecn_data[field])
@@ -242,12 +244,12 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
                                    "value": "{}".format(value)})
 
     if not json_patch:
-        pytest.skip("Not updating any WRED profiles, so skipping the test.")
+        pytest.skip("All WRED profiles have zero deltas for the requested fields, skipping test.")
 
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
-    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    if is_valid_platform_and_version(duthost, "WRED_PROFILE", "ECN tuning", operation):
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
         ensure_application_of_updated_config(duthost, fields, new_values)
-    else:
-        expect_op_failure(output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
