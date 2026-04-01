@@ -659,13 +659,14 @@ class TestAgentId():
 class TestReboot():
 
     def testRebootSflowEnable(self, sflowbase_config, config_sflow_agent, duthost,
-                              localhost, partial_ptf_runner, ptfhost):
+                              force_active_tor, localhost, partial_ptf_runner, ptfhost):
         duthost.command("config sflow polling-interval 80")
         verify_show_sflow(duthost, status='up', polling_int=80)
         duthost.command('sudo config save -y')
         reboot(duthost, localhost)
         assert wait_until(
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        force_active_tor(duthost, "all")
         assert wait_until(60, 5, 0, verify_sflow_config_apply, duthost)
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'], polling_int=80)
@@ -684,7 +685,8 @@ class TestReboot():
             polling_int=80,
             active_collectors="['collector0','collector1']")
 
-    def testRebootSflowDisable(self, sflowbase_config, duthost, localhost, partial_ptf_runner, ptfhost):
+    def testRebootSflowDisable(self, sflowbase_config, duthost, force_active_tor,
+                               localhost, partial_ptf_runner, ptfhost):
         config_sflow(duthost, sflow_status='disable')
         verify_show_sflow(duthost, status='down')
         partial_ptf_runner(
@@ -694,6 +696,7 @@ class TestReboot():
         reboot(duthost, localhost)
         assert wait_until(
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        force_active_tor(duthost, "all")
         verify_show_sflow(duthost, status='down')
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
