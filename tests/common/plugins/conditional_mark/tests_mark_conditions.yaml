@@ -270,6 +270,18 @@ bfd/test_bfd_traffic.py:
 #######################################
 #####            bgp              #####
 #######################################
+bgp/reliable_tsa/test_reliable_tsa_flaky.py:
+  skip:
+    reason: "reliable TSA is not supported on non-chassis"
+    conditions:
+      - "is_chassis==False"
+
+bgp/reliable_tsa/test_reliable_tsa_stable.py:
+  skip:
+    reason: "reliable TSA is not supported on non-chassis"
+    conditions:
+      - "is_chassis==False"
+
 bgp/test_bgp_allow_list.py:
   skip:
     reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
@@ -873,20 +885,20 @@ dhcp_relay:
     conditions:
       - "release in ['202412']"
 
-dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress:
+dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress:
   xfail:
     reason: "7215 has low performance, and can only take low stress (about 5 pps)"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
 
-dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress[discover]:
+dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress[discover]:
   xfail:
     reason: "Need to skip for discover test cases on dualtor"
     conditions:
       - "'dualtor' in topo_name"
       - "https://github.com/sonic-net/sonic-mgmt/issues/19230"
 
-dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress[request]:
+dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress[request]:
   xfail:
     reason: "Need to skip for request test cases on dualtor"
     conditions:
@@ -2290,11 +2302,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "hwsku in ['Cisco-8800-LC-48H-C48', 'Cisco-8122-O128S2', 'Cisco-8122-O64']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
-  xfail:
-    reason: "This test will be reworked following changes to GCU validators"
-    conditions_logical_operator: "OR"
-    conditions:
-      - "release in ['master', '202511'] and https://github.com/sonic-net/sonic-mgmt/issues/22333"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22295 and platform in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -5242,6 +5250,7 @@ zmq/test_gnmi_zmq.py:
     conditions_logical_operator: or
     conditions:
       - "'arista' in platform"
+      - "'dualtor' in topo_name"
       - "'isolated' in topo_name"
 
 zmq/test_gnmi_zmq.py::test_gnmi_zmq:
