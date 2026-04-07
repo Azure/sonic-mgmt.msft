@@ -555,6 +555,57 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
+    def _parse_zebra_nexthop_from_minigraph(self):
+        """Parse ZebraNexthop attribute directly from /etc/sonic/minigraph.xml."""
+        try:
+            import xml.etree.ElementTree as ET
+            tree = ET.parse("/etc/sonic/minigraph.xml")
+            root = tree.getroot()
+            for prop in root.iter():
+                if prop.tag.split('}')[-1] == 'DeviceProperty':
+                    name_elem = None
+                    value_elem = None
+                    for child in prop:
+                        tag = child.tag.split('}')[-1]
+                        if tag == 'Name':
+                            name_elem = child
+                        elif tag == 'Value':
+                            value_elem = child
+                    if name_elem is not None and name_elem.text == 'ZebraNexthop' and value_elem is not None:
+                        return value_elem.text
+        except FileNotFoundError:
+            self.module.warn("Minigraph file not found: /etc/sonic/minigraph.xml")
+        except ET.ParseError as e:
+            self.module.warn("Failed to parse minigraph XML: {}".format(e))
+        return None
+
+    def update_zebra_nexthop_config(self, config):
+        """Inject zebra_nexthop into DEVICE_METADATA from minigraph if present.
+
+        sonic_cfggen does not parse ZebraNexthop from minigraph, so we read
+        the XML directly and set it via the golden_config_db override mechanism.
+        """
+        zebra_nexthop = self._parse_zebra_nexthop_from_minigraph()
+        if zebra_nexthop is None:
+            return config
+        if zebra_nexthop not in ("enabled", "disabled"):
+            self.module.fail_json(
+                msg="Invalid zebra_nexthop value '{}': must be 'enabled' or 'disabled'".format(zebra_nexthop))
+        ori_config_db = json.loads(config)
+        if "DEVICE_METADATA" not in ori_config_db or \
+                "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            # When DEVICE_METADATA is absent from the golden config (e.g. T0/T1
+            # topologies), do not inject a minigraph-derived entry here.
+            # config_reload.py already restores zebra_nexthop via an additive
+            # hset after every minigraph-based config reload, so no golden-config
+            # override is needed.  Injecting a full minigraph entry here would
+            # cause config override-config-table (which uses set_entry / REPLACE
+            # semantics) to wipe fields such as default_pfcwd_status that are
+            # present in the running config_db but absent from minigraph output.
+            return config
+        ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
+        return json.dumps(ori_config_db, indent=4)
+
     def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
@@ -590,19 +641,6 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps({'PORT': golden_config['PORT']}, indent=4)
 
-    def generate_dummy_hft_config_db(self, config):
-        json_config = json.loads(config)
-        json_config["HIGH_FREQUENCY_TELEMETRY_PROFILE"] = {
-            "default": {
-                "stream_state": "disabled",
-                "poll_interval": "10000"
-            }
-        }
-        json_config["HIGH_FREQUENCY_TELEMETRY_GROUP"] = {
-            "default|PORT": {}
-        }
-        return json.dumps(json_config, indent=4)
-
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
         # topo check
@@ -636,6 +674,9 @@ class GenerateGoldenConfigDBModule(object):
         # update dns config
         config = self.update_dns_config(config)
 
+        # update zebra_nexthop config from minigraph
+        config = self.update_zebra_nexthop_config(config)
+
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
         if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
@@ -659,10 +700,6 @@ class GenerateGoldenConfigDBModule(object):
                     "has_per_asic_scope": "True",
                 }
             })
-
-        # Generate dummy table for HFT
-        if not multi_asic.is_multi_asic():
-            config = self.generate_dummy_hft_config_db(config)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)

@@ -39,6 +39,9 @@ def test_console_loopback_echo(setup_c0, creds, target_line, baud_rate):
     dutpass = creds['sonicadmin_password']
 
     packet_size = 64
+    delay_factor = 2.0
+    if "arm64-c8220tg_48a_o" in duthost.facts['platform']:
+        delay_factor = 50.0
 
     # Estimate a reasonable data transfer time based on configured baud rate
     timeout_sec = (packet_size * 10) * delay_factor / int(baud_rate)
@@ -91,12 +94,14 @@ def test_console_loopback_pingpong(setup_c0, creds, src_line, dst_line, baud_rat
 
         ensure_console_session_up(sender, src_line)
         ensure_console_session_up(receiver, dst_line)
+        timeout_sec = 0.1
+        if "arm64-c8220tg_48a_o" in duthost.facts['platform']:
+            timeout_sec = 0.4
 
         sender.sendline('ping')
-        assert_expect_text(receiver, 'ping', dst_line, timeout_sec=1)
+        assert_expect_text(receiver, 'ping', dst_line, timeout_sec)
         receiver.sendline('pong')
-        assert_expect_text(sender, 'pong', src_line, timeout_sec=1)
-
+        assert_expect_text(sender, 'pong', src_line, timeout_sec)
     except Exception:
         pytest.fail("Not able to communicate DUT via reverse SSH")
     finally:
