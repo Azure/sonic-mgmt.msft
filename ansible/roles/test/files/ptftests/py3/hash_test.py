@@ -404,7 +404,7 @@ class HashTest(BaseTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
-        outer_sport = (random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234)
+        outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
         dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
@@ -468,7 +468,7 @@ class HashTest(BaseTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
-        outer_sport = random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234
+        outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
         dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
@@ -500,7 +500,7 @@ class HashTest(BaseTest):
         logs = self.create_packets_logs(
             src_port=src_port,
             pkt=pkt,
-            ipinip_pkt=inner_pkt,
+            ipinip_pkt=pkt,
             vxlan_pkt=pkt,
             nvgre_pkt=pkt,
             inner_pkt=inner_pkt,
@@ -719,7 +719,7 @@ class IPinIPHashTest(HashTest):
             inner_frame=pkt[version])
         exp_pkt = ipinip_pkt.copy()
         exp_pkt['IP'].ttl -= 1
-        return pkt, exp_pkt, ipinip_pkt
+        return ipinip_pkt, exp_pkt, pkt
 
     def apply_mask_to_exp_pkt(self, masked_exp_pkt, version='IP'):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
@@ -936,28 +936,30 @@ class VxlanHashTest(HashTest):
         return masked_exp_pkt
 
     def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip,
-                       outer_dst_ip, outer_src_ipv6, outer_dst_ipv6):
+                       outer_dst_ip):
         if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
             (matched_port, received) = self.check_ipv4_route(
                 hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists, outer_src_ip=outer_src_ip,
                 outer_dst_ip=outer_dst_ip)
         else:
             (matched_port, received) = self.check_ipv6_route(
-                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists, outer_src_ip=outer_src_ipv6,
-                outer_dst_ip=outer_dst_ipv6)
+                hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists, outer_src_ip=outer_src_ip,
+                outer_dst_ip=outer_dst_ip)
         assert received
         logging.info("Received packet at " + str(matched_port))
         time.sleep(0.02)
         return (matched_port, received)
 
     def check_hash(self, hash_key):
-        # Use dummy IPv4 address for outer_src_ip and outer_dst_ip
+        # Use dummy IPv4/v6 address for outer_src_ip and outer_dst_ip
         # We don't care the actually value as long as the outer_dst_ip is routed by default routed
         # The outer_src_ip and outer_dst_ip are fixed
-        outer_src_ip = '80.1.0.31'
-        outer_dst_ip = '80.1.0.32'
-        outer_src_ipv6 = '80::31'
-        outer_dst_ipv6 = '80::32'
+        if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
+            outer_src_ip = '80.1.0.31'
+            outer_dst_ip = '80.1.0.32'
+        else:
+            outer_src_ip = '80::31'
+            outer_dst_ip = '80::32'
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
             outer_dst_ip)
         if self.switch_type == "chassis-packet":
@@ -974,8 +976,7 @@ class VxlanHashTest(HashTest):
             logging.info('Checking hash key {}, src_port={}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'
                          .format(hash_key, src_port, exp_port_lists, outer_src_ip, outer_dst_ip))
             (matched_index, _) = self.check_ip_route(hash_key,
-                                                     src_port, exp_port_lists, outer_src_ip, outer_dst_ip,
-                                                     outer_src_ipv6, outer_dst_ipv6)
+                                                     src_port, exp_port_lists, outer_src_ip, outer_dst_ip)
             hit_count_map[matched_index] = hit_count_map.get(
                 matched_index, 0) + 1
         logging.info("hash_key={}, hit count map: {}".format(

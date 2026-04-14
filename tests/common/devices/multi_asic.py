@@ -98,23 +98,25 @@ class MultiAsicSonicHost(object):
         if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
             service_list.append("dhcp_server")
 
-        if config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu' and 'snmp' in service_list:
+        is_dpu = config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
+        if is_dpu and 'snmp' in service_list:
             service_list.remove('snmp')
 
         # Update the asic service based on feature table state and asic flag
-        for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
-            if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+        filtered_asic_services = []
+        for service in self.sonichost.DEFAULT_ASIC_SERVICES:
+            if service == 'teamd' and is_dpu:
                 logger.info("Removing teamd from default services for switch_type DPU")
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                 continue
             if service not in config_facts['FEATURE']:
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                 continue
             if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+                continue
             if config_facts['FEATURE'][service]['state'] == "disabled":
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-        if not self.get_facts().get("modular_chassis"):
+                continue
+            filtered_asic_services.append(service)
+        self.sonichost.DEFAULT_ASIC_SERVICES = filtered_asic_services
+        if not self.get_facts().get("modular_chassis") and not is_dpu:
             service_list.append("lldp")
 
         for asic in active_asics:
@@ -928,3 +930,21 @@ class MultiAsicSonicHost(object):
     @lru_cache
     def containers(self):
         return SonicDockerManager(self)
+
+    def get_bgp_confed_asn(self):
+        """
+        Get BGP confederation ASN from running config
+        Return None if not configured
+        """
+        if self.sonichost.is_multi_asic:
+            asic = self.frontend_asics[0]
+            config_facts = asic.config_facts(
+                host=self.hostname, source="running", namespace=asic.namespace
+            )['ansible_facts']
+        else:
+            config_facts = self.sonichost.config_facts(
+                host=self.hostname, source="running"
+            )['ansible_facts']
+
+        bgp_confed_asn = config_facts.get('BGP_DEVICE_GLOBAL', {}).get('CONFED', {}).get('asn', None)
+        return bgp_confed_asn
