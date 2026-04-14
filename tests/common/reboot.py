@@ -386,6 +386,13 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         pool.terminate()
         raise Exception(f"dut not start: {err}")
 
+    # NOTE: That once our device is back up it may be running a different version of SONiC/Debian
+    # than before which may include a different version of python. Therefore, to prevent python
+    # interpreter not found issues in subsequent Ansible modules as a result of using the
+    # pre-reboot cached interpreter value, we need to clear the cached facts so that they are
+    # re-gathered on next use.
+    duthost.meta("clear_facts")
+
     if return_after_reconnect:
         return
 
@@ -736,7 +743,8 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
         'search_regex': SONIC_SSH_REGEX
     }
     short_timeout = 40
-    params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout}]
+    short_delay = 10
+    params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout, 'delay': short_delay}]
     for num_try, params_to_update in enumerate(params_to_update_list):
         iter_connection_params = default_connection_params.copy()
         iter_connection_params.update(params_to_update)

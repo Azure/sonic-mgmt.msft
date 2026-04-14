@@ -121,7 +121,14 @@ scan_dbs = {
             "keys_skip_val_comp": {
                 "last_up_time",
                 "last_down_time",
-                "flap_count"
+                "flap_count",
+                "pre1",
+                "pre2",
+                "pre3",
+                "post1",
+                "post2",
+                "post3",
+                "main"
             }
         },
         "state-db": {
@@ -394,6 +401,17 @@ def chk_bgp_session(duthost, ip, msg):
     bgp_state = info.get("bgpState", "")
     assert bgp_state == "Established", \
         "{}: BGP session for {} = {}; expect established".format(msg, ip, bgp_state)
+
+
+def chk_any_bgp_session(duthost, msg):
+    v4_remote = tor_data.get("ip", {}).get("remote")
+    v6_remote = tor_data.get("ipv6", {}).get("remote")
+    if v4_remote:
+        chk_bgp_session(duthost, v4_remote, msg)
+    elif v6_remote:
+        chk_bgp_session(duthost, v6_remote.lower(), msg)
+    else:
+        report_error("{}: No neighbors detected".format(msg))
 
 
 def main():

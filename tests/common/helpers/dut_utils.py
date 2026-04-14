@@ -11,7 +11,7 @@ from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
 from collections import defaultdict
 from tests.common.connections.console_host import ConsoleHost
-from tests.common.utilities import get_dut_current_passwd
+from tests.common.utilities import get_dut_current_passwd, update_console_creds
 from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_CISCO_CONFIG,
     CONSOLE_SSH_DIGI_CONFIG,
@@ -371,12 +371,14 @@ def ignore_t2_syslog_msgs(duthost):
 
 
 def get_sai_sdk_dump_file(duthost, dump_file_name):
-    full_path_dump_file = f"/tmp/{dump_file_name}"
+    # a folder mounted from the host to the syncd container
+    # visible as /var/log/sdk_dbg for both the host and the syncd container
+    # and this won't cause syncd container memory usage to grow
+    dump_folder = "/var/log/sdk_dbg"
+    full_path_dump_file = f"{dump_folder}/{dump_file_name}"
+    logger.info(f"Generating SDK dump file: {full_path_dump_file}")
     cmd_gen_sdk_dump = f"docker exec syncd bash -c 'saisdkdump -f {full_path_dump_file}' "
     duthost.shell(cmd_gen_sdk_dump)
-
-    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd:{full_path_dump_file}  {full_path_dump_file}"
-    duthost.shell(cmd_copy_dmp_from_syncd_to_host)
 
     compressed_dump_file = f"/tmp/{dump_file_name}.tar.gz"
     duthost.archive(path=full_path_dump_file, dest=compressed_dump_file, format='gz')
@@ -431,11 +433,13 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
+    console_auth_type = conn_graph_facts['device_console_info'][dut_hostname].get('AuthType', "")
     console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
     console_device = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerdevice']
 
     console_type = f"console_{console_type}"
+    update_console_creds(creds, console_auth_type)
     console_menu_type = f"{console_type}_{console_menu_type}"
 
     # console password and sonic_password are lists, which may contain more than one password
@@ -523,7 +527,10 @@ def creds_on_dut(duthost):
     for cred_var in cred_vars:
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
-    # load creds for console
+
+    creds["console_login_options"] = hostvars.get("console_login_options", {})
+
+    # load default creds for console
     if "console_login" not in list(hostvars.keys()):
         console_login_creds = {}
     else:
@@ -693,7 +700,7 @@ def get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc):
                        f"e.g smartswitch-01-dpu-1, smartswitch-01 is the duthost name, " \
                        f"dpu-1 is the dpu name, and 1 is the dpu index"
             dpu_name_ssh_port_dict[f"dpu{dpuhost_index}"] = str(dpu_host_ssh_port)
-    logger.info(f"dpu_name_ssh_port_dict:{dpu_name_ssh_port_dict}")
+    logger.info(f"dpu_name_ssh_port_dict: {dpu_name_ssh_port_dict}")
 
     return dpu_name_ssh_port_dict
 
@@ -711,11 +718,13 @@ def check_nat_is_enabled_and_set_cache(duthost, request):
 
 
 def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
+    is_bookworm = "bookworm" in duthost.shell("cat /etc/os-release")['stdout']
+    sysctl_file = "/etc/sysctl.conf" if is_bookworm else "/usr/lib/sysctl.d/90-sonic.conf"
     enable_nat_cmds = [
         "sudo su",
-        "sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf",
-        "sudo echo net.ipv4.conf.eth0.forwarding=1 >> /etc/sysctl.conf",
-        "sudo sysctl -p",
+        f"sudo echo net.ipv4.ip_forward=1 >> {sysctl_file}",
+        f"sudo echo net.ipv4.conf.eth0.forwarding=1 >> {sysctl_file}",
+        f"sudo sysctl -p {sysctl_file}",
         f"sudo sonic-dpu-mgmt-traffic.sh inbound -e --dpus "
         f"{','.join(dpu_name_ssh_port_dict.keys())} --ports {','.join(dpu_name_ssh_port_dict.values())}",
         "sudo iptables-save > /etc/iptables/rules.v4",
