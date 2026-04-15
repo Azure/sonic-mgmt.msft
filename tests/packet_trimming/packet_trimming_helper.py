@@ -26,7 +26,7 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
                                              SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
                                              SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR, SCHEDULER_METER_TYPE,
-                                             PACKET_SIZE_MARGIN)
+                                             PACKET_SIZE_MARGIN, TRIMMING_COUNTER_INTERVAL)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
 logger = logging.getLogger(__name__)
@@ -2845,6 +2845,22 @@ def compare_counters(counter1, counter2, keys_to_compare):
     logger.info("All specified counters match")
 
 
+def check_trim_drop_counter_zero(duthost, port):
+    """
+    Check if TRIM_DRP_PKTS counter on the specified port is 0.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+
+    Returns:
+        bool: True if TRIM_DRP_PKTS is 0, False otherwise
+    """
+    trim_drop = get_port_trim_counters_json(duthost, port)['TRIM_DRP_PKTS']
+    logger.info(f"TRIM_DRP_PKTS on port {port}: {trim_drop}")
+    return trim_drop == 0
+
+
 def verify_queue_and_port_trim_counter_consistency(duthost, port):
     """
     Verify the consistency of the trim counter on the queue and the port level.
@@ -2857,6 +2873,10 @@ def verify_queue_and_port_trim_counter_consistency(duthost, port):
         AssertionError: If the trim counter on the queue is not equal to the trim counter on the port level
     """
     logger.info(f"Verify the consistency of the trim counter on the queue and the port level for port {port}")
+
+    sleep_time = TRIMMING_COUNTER_INTERVAL / 1000 + 1
+    logger.info(f"Waiting {sleep_time} seconds for the trim counter to be updated")
+    time.sleep(sleep_time)
 
     # Get the trim counter information on the queue level
     queue_counters = get_queue_trim_counters_json(duthost, port)

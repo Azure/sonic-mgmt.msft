@@ -39,6 +39,8 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_ses
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
+from tests.common.fixtures.grpc_fixtures import ptf_grpc, ptf_gnoi, ptf_grpc_custom, \
+    setup_gnoi_tls_server, ptf_gnmi                                                          # noqa: F401
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor
 from tests.common.dualtor.dual_tor_common import active_active_ports                        # noqa: F401
@@ -169,11 +171,17 @@ def pytest_addoption(parser):
     parser.addoption('--minigraph2', action='store', type=str, help='path to the minigraph2')
 
     #####################################
-    # dash, vxlan, route shared options #
+    # ha, dash, vxlan, route shared options #
     #####################################
     parser.addoption("--skip_cleanup", action="store_true", help="Skip config cleanup after test (tests: dash, vxlan)")
     parser.addoption("--num_routes", action="store", default=None, type=int,
                      help="Number of routes (tests: route, vxlan)")
+    parser.addoption("--skip_cert_cleanup", action="store_true", help="Skip certificates cleanup after test")
+    parser.addoption("--skip_config", action="store_true", help="Don't apply configurations on DUT")
+    parser.addoption("--vxlan_udp_dport", action="store", default="random",
+                     help="The vxlan udp dst port used in the test")
+    parser.addoption("--dpu_index", action="store", default=0, type=int,
+                     help="The default dpu used for the test")
 
     ############################
     # sflow options            #
@@ -290,6 +298,12 @@ def pytest_addoption(parser):
                      help="Use insecure connection to gNMI target")
     parser.addoption("--disable_sai_validation", action="store_true", default=True,
                      help="Disable SAI validation")
+    parser.addoption(
+        "--target_version",
+        action="store",
+        default=None,
+        help="Target SONiC version string for gNOI SetPackage (e.g. SONiC-OS-20251110.06)",
+    )
     ############################
     #   Parallel run options   #
     ############################
@@ -3829,7 +3843,9 @@ def yang_validation_check(request, duthosts):
     skip_yang = request.config.getoption("--skip_yang")
 
     if skip_yang:
-        logger.info("Skipping YANG validation check due to --skip_yang flag")
+        logger.info("Skipping YANG validation pre-check due to --skip_yang flag")
+        yield
+        logger.info("Skipping YANG validation post-check due to --skip_yang flag")
         return
 
     def run_yang_validation(stage):
