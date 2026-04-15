@@ -89,6 +89,7 @@ class ControlPlaneBaseTest(BaseTest):
         self.topo_type = test_params.get('topo_type', None)
         self.ip_version = test_params.get('ip_version', None)
         self.neighbor_miss_trap_supported = test_params.get('neighbor_miss_trap_supported', False)
+        self.is_smartswitch_light_mode = test_params.get('is_smartswitch_light_mode', False)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
