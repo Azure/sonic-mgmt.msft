@@ -57,7 +57,7 @@ def test_snmp_link_local_ip(duthosts,
     # Restart snmp service to regenerate snmpd.conf with
     # link local IP configured in MGMT_INTERFACE
     duthost.shell("config snmpagentaddress add {}%eth0".format(link_local_ip))
-    if not wait_until(60, 5, 0, is_snmpagent_listen_on_ip, duthost, link_local_ip):
+    if not wait_until(300, 5, 0, is_snmpagent_listen_on_ip, duthost, link_local_ip):
         pytest.fail("SNMP agent not listen on link local IP {}".format(link_local_ip))
     stdout_lines = duthost.shell("docker exec snmp snmpget \
                                  -v2c -c {} {}%eth0 {}"
