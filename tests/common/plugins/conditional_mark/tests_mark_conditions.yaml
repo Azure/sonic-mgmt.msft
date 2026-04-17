@@ -583,10 +583,6 @@ cacl/test_cacl_application.py:
     reason: "skip test_cacl_application in PR test temporarily"
     conditions:
       - "asic_type in ['vs']"
-  xfail:
-    reason: "Wait PR https://github.com/sonic-net/sonic-host-services/pull/301 include in sonic-buildimage"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21175"
 
 cacl/test_cacl_application.py::test_cacl_acl_loader_commands_internal:
   skip:
@@ -739,6 +735,12 @@ dash/test_dash_eni_counter.py:
     reason: "Currently dash tests are not supported on KVM"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+
+dash/test_dash_metering.py:
+  skip:
+    reason: "Metering w/ FNIC not supported on Nvidia yet"
+    conditions:
+      - "hwsku not in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
 
 dash/test_dash_privatelink.py:
   skip:
