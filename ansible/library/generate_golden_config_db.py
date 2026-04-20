@@ -63,7 +63,9 @@ class GenerateGoldenConfigDBModule(object):
                                     npu_index=dict(required=False, type='int', default=0),
                                     duts_list=dict(required=False, type='list', default=[]),
                                     dut_loopbacks=dict(required=False, type='dict', default={}),
-                                    console_ports=dict(required=False, type='dict', default=None)),
+                                    console_ports=dict(required=False, type='dict', default=None),
+                                    bgp_confd_asn=dict(required=False, type='str', default=None),
+                                    bgp_confd_peers=dict(required=False, type='str', default=None)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -73,6 +75,8 @@ class GenerateGoldenConfigDBModule(object):
 
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_lit_mode = self.module.params['is_lit_mode']
+        self.bgp_confd_asn = self.module.params['bgp_confd_asn']
+        self.bgp_confd_peers = self.module.params['bgp_confd_peers']
         self.npu_index = self.module.params['npu_index']
         self.duts_list = self.module.params['duts_list']
         self.dut_loopbacks = self.module.params['dut_loopbacks']
@@ -706,6 +710,42 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
+    def generate_default_init_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate config table from init_cfg.ini
+        ori_config_db = json.loads(out)
+
+        golden_config_db = {}
+        if "DEVICE_METADATA" in ori_config_db:
+            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+
+        # Set buffer_model to traditional to prevent regression, as it is currently
+        # hardcoded here:
+        # See sonic-utilities config/main.py:L2216.
+        golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
+        return json.dumps(golden_config_db, indent=4)
+
+    def update_zmq_config(self, config):
+        ori_config_db = json.loads(config)
+        if "DEVICE_METADATA" not in ori_config_db:
+            ori_config_db["DEVICE_METADATA"] = {}
+        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
+
+        # Older version image may not support ZMQ feature flag
+        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
+        if "orch_northbond_route_zmq_enabled" in out:
+            if self.topo_name == "t1-smartswitch-ha":
+                ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "false"
+            else:
+                ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
+
+        return json.dumps(ori_config_db, indent=4)
+
     def _parse_zebra_nexthop_from_minigraph(self):
         """Parse ZebraNexthop attribute directly from /etc/sonic/minigraph.xml."""
         try:
@@ -769,21 +809,28 @@ class GenerateGoldenConfigDBModule(object):
 
     def generate_lt2_ft2_golden_config_db(self):
         """
-        Generate golden_config for FT2 to enable FEC.
-        **Only PORT table is updated**.
+        Generate golden_config for FT2 to enable FEC and set BGP confed.
         """
         SUPPORTED_TOPO = ["ft2-64", "lt2-p32o64", "lt2-o128", "ft2-o128"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
         SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
         ori_config = json.loads(self.get_config_from_minigraph())
-        port_config = ori_config.get("PORT", {})
-        for name, config in port_config.items():
+        golden_config = ori_config
+        golden_config["PORT"] = ori_config.get("PORT", {})
+        for _, config in golden_config["PORT"].items():
             # Enable FEC for ports with supported speed
             if config["speed"] in SUPPORTED_PORT_SPEED and "fec" not in config:
                 config["fec"] = "rs"
 
-        return json.dumps({"PORT": port_config}, indent=4)
+        # Add BGP confederation config
+        if self.bgp_confd_asn and self.bgp_confd_peers:
+            golden_config["BGP_DEVICE_GLOBAL"] = ori_config.get("BGP_DEVICE_GLOBAL", {})
+            # Replace space in confg_peers with ; to align with NDM
+            golden_config["BGP_DEVICE_GLOBAL"]["CONFED"] = \
+                {"asn": str(self.bgp_confd_asn), "peers": str(self.bgp_confd_peers).replace(' ', ';')}
+
+        return json.dumps(golden_config, indent=4)
 
     def generate_t0_f2_golden_config_db(self):
         """
