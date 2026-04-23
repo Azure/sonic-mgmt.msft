@@ -58,7 +58,7 @@ class GenerateGoldenConfigDBModule(object):
                                     macsec_profile=dict(require=False, type='str', default=None),
                                     num_asics=dict(require=False, type='int', default=1),
                                     hwsku=dict(require=False, type='str', default=None),
-                                    is_light_mode=dict(require=False, type='bool', default=False)),
+                                    is_light_mode=dict(require=False, type='bool', default=True)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
