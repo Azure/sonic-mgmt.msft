@@ -1478,6 +1478,14 @@ platform_tests/test_service_warm_restart.py:
 #######################################
 #####   test_xcvr_info_in_db.py   #####
 #######################################
+
+platform_tests/test_xcvr_info_in_db.py:
+  skip:
+    reason: 'Transceiver info tests require SFP hardware, not available on VS platform'
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vs']"
+
 platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
   xfail:
     reason: "CLI Utility sfpshow not working correctly"
