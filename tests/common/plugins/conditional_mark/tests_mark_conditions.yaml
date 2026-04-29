@@ -963,6 +963,12 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_monitor_checksum_validation:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24402 and asic_type in ['mellanox', 'nvidia']"
 
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_on_dualtor_standby:
+  skip:
+    reason: "Test requires dualtor topology (uses rand_unselected_dut which returns None on non-dualtor)"
+    conditions:
+      - "'dualtor' not in topo_name"
+
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_random_sport:
   skip:
     reason: "Skip test_dhcp_relay_random_sport on dualtor in 201811 and 201911 or platform x86_64-8111_32eh_o-r0"
@@ -2274,6 +2280,7 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18445"
+      - "'isolated' in topo_name"
 
 generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
   xfail:
@@ -3775,7 +3782,7 @@ qos/test_qos_dscp_mapping.py:
       - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
       - "asic_type in ['vs']"
 
-qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping[pipe]:
+qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping[pipe:
   skip:
     reason: "Pipe decap mode not supported due to either SAI or platform limitation / M* topo does not support qos"
     conditions_logical_operator: or
@@ -3784,7 +3791,7 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
       - https://github.com/sonic-net/sonic-mgmt/issues/12906
       - "topo_type in ['m0', 'mx', 'm1']"
 
-qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping[uniform]:
+qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping[uniform:
   skip:
     reason: "Uniform decap mode is not supported on Mellanox dualtor testbed due to the mode is pipe to support dscp remapping / Test case unsupported in the default profile configuration."
     conditions_logical_operator: or
