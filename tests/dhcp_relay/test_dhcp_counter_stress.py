@@ -21,7 +21,7 @@ BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
 DUAL_TOR_MODE = 'dual'
-BUFFER_SIZE = 1024 * 1024  # 1MB
+BUFFER_SIZE = 1024  # 1 MiB (tcpdump --buffer-size is in KiB)
 logger = logging.getLogger(__name__)
 PACKET_RATE_PER_SEC_MAP = {
     "Mellanox-SN2700": 20
@@ -86,7 +86,7 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             "testing_mode": testing_mode,
             "kvm_support": True
         }
-        count_file = '/tmp/dhcp_stress_test_{}.json'.format(dhcp_type)
+        count_file = '/tmp/dhcp_stress_test_{}'.format(dhcp_type)
 
         def _check_count_file_exists():
             command = 'ls {} > /dev/null 2>&1 && echo exists || echo missing'.format(count_file)

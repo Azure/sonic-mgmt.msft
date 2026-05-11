@@ -370,6 +370,12 @@ bgp/test_bgp_bbr_default_state.py::test_bbr_disabled_constants_yml_default:
     conditions:
       - "'-v6-' in topo_name"
 
+bgp/test_bgp_bounce.py:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20753"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20753 and '-v6-' in topo_name"
+
 bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
   skip:
     reason: "Skip for IPv6-only topologies"
@@ -478,6 +484,18 @@ bgp/test_bgp_session.py::test_bgp_session_interface_down:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
 
+bgp/test_bgp_session_flap.py::test_bgp_multiple_session_flaps:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20755"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20755 and '-v6-' in topo_name"
+
+bgp/test_bgp_session_flap.py::test_bgp_single_session_flaps:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20755"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20755 and '-v6-' in topo_name"
+
 bgp/test_bgp_slb.py:
   skip:
     reason: "Skip over topologies which doesn't support slb and this test is not run on this topology currently"
@@ -538,6 +556,10 @@ bgp/test_bgp_suppress_fib.py:
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20756 and '-v6-' in topo_name"
 
 bgp/test_bgp_update_replication.py:
   xfail:
@@ -556,6 +578,12 @@ bgp/test_bgpmon.py:
     reason: "Not supported on T2 topology or topology backend"
     conditions:
       - "'backend' in topo_name or topo_type in ['t2']"
+
+bgp/test_bgpmon.py::test_bgpmon:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20754"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20754 and '-v6-' in topo_name"
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
@@ -759,9 +787,9 @@ crm/test_crm_available.py:
 #######################################
 dash:
   skip:
-    reason: "Not supported on this DUT topology."
+    reason: "Dash tests are only supported on smartswitch platforms"
     conditions:
-      - "'dpu' not in topo_name"
+      - "is_smartswitch == False"
 
 dash/crm/test_dash_crm.py:
   skip:
@@ -1135,6 +1163,7 @@ dhcp_relay/test_dhcpv6_relay.py::test_interface_binding:
       - "release in ['201911', '202106']"
 
 #######################################
+
 #####         dhcp_server        #####
 #######################################
 dhcp_server:
@@ -1142,6 +1171,14 @@ dhcp_server:
     reason: "It is skipped for '202412' for now"
     conditions:
       - "release in ['202412']"
+
+#####             disk            #####
+#######################################
+disk/test_disk_exhaustion.py:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20759"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20759 and '-v6-' in topo_name"
 
 #######################################
 #####         drop_packets        #####
@@ -2334,9 +2371,9 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
 
 generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
   xfail:
-    reason: "xfail for IPv6-only topologies, still have IPv4 function used"
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20757"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19638 and '-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20757 and '-v6-' in topo_name"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -3050,10 +3087,12 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
 #######################################
 high_frequency_telemetry:
   skip:
-    reason: "High frequency telemetry isn't supported in this platform"
+    reason: "High frequency telemetry isn't supported in this platform or on T2 topology"
     conditions_logical_operator: or
     conditions:
       - "platform not in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0', 'x86_64-arista_7060x6_64pe_b']"
+      - "'bmc' in topo_type"
+      - "'t2' in topo_type"
 
 high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_counters:
   skip:
@@ -3554,7 +3593,7 @@ pc/test_po_voq.py:
   skip:
     reason: "Skip for non t2 or Skip since there is no portchannel configured or no portchannel member exists in current topology."
     conditions:
-      - "'t2' not in topo_name or num_asic == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
+      - "'t2' not in topo_name or num_asic == 0 or len(minigraph_portchannels) == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
 pc/test_retry_count.py::test_retry_count:
   xfail:
@@ -3894,7 +3933,7 @@ qos/test_qos_sai.py::TestQosSai:
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox','marvell-teralynx']"
+      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox','marvell-teralynx']"
 
 qos/test_qos_sai.py::TestQosSai::testIPIPQosSaiDscpToPgMapping:
   skip:
@@ -3959,7 +3998,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
     conditions:
       - "'backend' in topo_name"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
+      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping:
   skip:
@@ -3968,7 +4007,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping:
     conditions:
       - "'backend' in topo_name"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
+      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDwrr:
   skip:
@@ -3984,7 +4023,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
     conditions:
       - "asic_type in ['mellanox']"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
+      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
       - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity:
@@ -4005,7 +4044,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
        and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32C-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32C-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
        and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox','marvell-teralynx']"
+      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox','marvell-teralynx']"
       - "asic_type in ['vs']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
@@ -4068,7 +4107,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
       - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
       - "asic_type in ['cisco-8000'] and not platform.startswith('x86_64-8122_')"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
+      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgMinThreshold:
   skip:
@@ -4089,7 +4128,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
     conditions:
       - "asic_type not in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
+      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
   skip:
@@ -4823,6 +4862,10 @@ telemetry/test_events.py:
       - https://github.com/sonic-net/sonic-buildimage/issues/19943
 
 telemetry/test_events.py::test_events:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20758"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20758 and '-v6-' in topo_name"
   skip:
     reason: "dut ipv6 mgmt ip not supported"
     conditions_logical_operator: and

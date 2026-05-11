@@ -38,7 +38,7 @@ UPSTREAM_ALL_NEIGHBOR_MAP = {
     "m0_vlan": ["m1"],
     "m0_l3": ["m1"],
     'lt2': ['ut2'],
-    'ft2': ['ut2'],
+    'ft2': ['lt2'],
     "c0": ["m1"]
 }
 
