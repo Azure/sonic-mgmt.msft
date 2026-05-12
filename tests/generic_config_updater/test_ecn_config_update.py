@@ -227,9 +227,6 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
         if not wred_green_enabled:
             logger.info(f"Not modifying the WRED profile {wred_profile} since 'wred_green_enable' is false.")
         delta = determine_delta_values(ecn_data, fields, wred_green_enabled)
-        if all(delta[f] == 0 for f in fields):
-            logger.info(f"Skipping WRED profile {wred_profile}: all deltas are 0, no real value change possible.")
-            continue
         new_values[wred_profile] = {}
         for field in fields:
             value = int(ecn_data[field])
