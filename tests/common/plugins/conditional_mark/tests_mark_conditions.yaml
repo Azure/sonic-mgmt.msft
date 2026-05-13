@@ -2458,6 +2458,7 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000'] and release in ['202211']"
+      - "'t2' in topo_name"
 
 generic_config_updater/test_monitor_config.py::test_monitor_config_tc1_suite:
   skip:
@@ -2660,6 +2661,18 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
     conditions:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_smartswitch.py:
+  skip:
+    reason: 'SmartSwitch gNMI tests require SmartSwitch platform, not applicable to BMC'
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmic.py:
+  skip:
+    reason: "gnmic binary is being removed from docker-ptf to reduce attack surface"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/24328"
 
 gnmi/test_gnoi_killprocess.py:
   skip:
