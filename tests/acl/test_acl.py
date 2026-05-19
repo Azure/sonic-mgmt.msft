@@ -25,7 +25,7 @@ from tests.common.fixtures.ptfhost_utils import \
     copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa: F401
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # noqa: F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.utilities import get_plt_wait_time, wait_until, check_msg_in_syslog
 from tests.common.utilities import get_all_upstream_neigh_type, get_downstream_neigh_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -561,8 +561,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
 def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
-    if tbinfo["topo"]["type"] in ["t0"] and request.param == "ipv6":
-        pytest.skip("IPV6 ACL test not currently supported on t0 testbeds")
+    v6topo = "isolated-v6" in tbinfo["topo"]["name"]
+    if request.param == "ipv4":
+        if v6topo:
+            pytest.skip("IPV4 ACL test not supported on isolated-v6 testbeds")
+    else:       # ipv6
+        if tbinfo["topo"]["type"] in ["t0"] and not v6topo:
+            pytest.skip("IPV6 ACL test not currently supported on t0 testbeds")
 
     return request.param
 
@@ -1075,8 +1080,10 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             logger.info('Skip checking rule counters for vs platform')
             return True
 
-        logger.info('Wait all rule counters are ready')
-        return wait_until(300, 2, 0, self.check_rule_counters_internal, duthost)
+        plt_wait_dict = get_plt_wait_time(duthost, "acl/test_acl.py")
+        wait = plt_wait_dict.get("wait", 300)
+        logger.info('Wait for {} to ensure all rule counters are ready'.format(wait))
+        return wait_until(wait, 2, 0, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
         for asic_id in duthost.get_frontend_asic_ids():
