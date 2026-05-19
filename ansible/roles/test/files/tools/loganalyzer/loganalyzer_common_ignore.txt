@@ -250,6 +250,18 @@ r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*get_dispatch_attribs_handler:.*(INGRESS_SAMPLE_MIRROR_SESSION|EGRESS_SAMPLE_MIRROR_SESSION).*"
 
+# https://github.com/sonic-net/sonic-buildimage/issues/27327
+# Mellanox SDK new log format (with client_pid prefix) - FEC_ALIGNMENT_LOCK polling on ports without FEC support
+# and sai_get_attributes failures in the new format
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] client_pid=\d+, .\/src\/mlnx_sai_utils.c\[\d+\]- get_dispatch_attribs_handler: Failed Get #\d+, FEC_ALIGNMENT_LOCK, key:PORT.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] client_pid=\d+, .\/src\/mlnx_sai_utils.c\[\d+\]- sai_get_attributes: Failed to get attribute.*"
+
+# Mellanox SAI_PORT FEC alignment lock not supported on pre-SPC4 platforms (SN2700, SN4600C, SN4700)
+r, ".* ERR syncd#SDK: \[SAI_PORT.ERR\].*mlnx_sai_port.c\[\d+\]- mlnx_port_state_get: FEC alignment lock only supported on SPC4\+.*"
+
+# Orchagent PORT_PHY_SERDES_ATTR counter map errors for ports without serdes objects
+r, ".* ERR swss\d*#orchagent: :- clearPortPhySerdesAttrCounterMap: PORT_PHY_SERDES_ATTR: Port .* has no serdes object"
+
 # https://github.com/sonic-net/sonic-mgmt/issues/10384
 r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
 
@@ -484,3 +496,7 @@ r, ".* ERR syncd\d*#syncd: :- collectData: Failed to get port attr for VID 0x[0-
 r, ".* ERR auditd.*: queue to plugins is full - dropping event"
 r, ".* ERR auditd.*: message repeated .*: \[ queue to plugins is full - dropping event\]"
 r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped event notifications"
+
+# ctrmgrd k8s join warnings (old k8s version incompatibility with Docker 28.x)
+r, ".* ERR ctrmgrd\.py: Refer file .* for troubleshooting tips.*"
+r, ".* ERR ctrmgrd\.py:.*\[WARNING SystemVerification\]:.*Docker version is not on the list of validated versions.*"
