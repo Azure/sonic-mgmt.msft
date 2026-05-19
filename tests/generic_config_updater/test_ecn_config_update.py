@@ -227,9 +227,6 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
         if not wred_green_enabled:
             logger.info(f"Not modifying the WRED profile {wred_profile} since 'wred_green_enable' is false.")
         delta = determine_delta_values(ecn_data, fields, wred_green_enabled)
-        if all(delta[f] == 0 for f in fields):
-            logger.info(f"Skipping WRED profile {wred_profile}: all deltas are 0, no real value change possible.")
-            continue
         new_values[wred_profile] = {}
         for field in fields:
             value = int(ecn_data[field])
@@ -247,9 +244,6 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
         pytest.skip("All WRED profiles have zero deltas for the requested fields, skipping test.")
 
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-        ensure_application_of_updated_config(duthost, fields, new_values)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+    expect_op_success(duthost, output)
+    ensure_application_of_updated_config(duthost, fields, new_values)
