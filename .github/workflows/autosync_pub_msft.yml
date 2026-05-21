@@ -43,7 +43,7 @@ jobs:
         run: |
           set -ex
 
-          branches="202412 202506 202512"
+          branches="202412 202506 202512 202511_azd"
           pushd sonic-mgmt.msft
 
           [ -z "$branches" ] && exit 1
@@ -59,6 +59,9 @@ jobs:
               branch_head=202505
             fi
             if [[ $branch_head == "202512" ]]; then
+              branch_head=202511
+            fi
+            if [[ $branch_head == "202511_azd" ]]; then
               branch_head=202511
             fi
 
