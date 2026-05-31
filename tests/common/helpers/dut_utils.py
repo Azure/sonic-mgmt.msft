@@ -126,6 +126,64 @@ def clear_failed_flag_and_restart(duthost, container_name):
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
 
+def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds=30, verify_timeout=180):
+    """
+    Restart a systemd-managed service with StartLimitHit guard.
+
+    Strategy:
+    0) Pre-detect StartLimitHit and, if present, skip a failing restart
+    1) When not rate-limited, reset-failed to clear stale counters and try restart
+    2) If restart fails, rate-limit is detected, or container isn't running:
+       - 'systemctl reset-failed <service>.service'
+       - fixed backoff (default 30s when rate-limited, 1s otherwise)
+       - 'systemctl start <service>.service'
+       - wait until container is running
+
+    Returns: True when the service is (re)started and running; asserts on failure.
+    """
+
+    # 0) Pre-detect StartLimitHit so we can optionally skip a failing restart
+    pre_rate_limited = is_hitting_start_limit(duthost, service_name)
+
+    if not pre_rate_limited:
+        # 1) Proactively clear stale failure counters and try a normal restart
+        duthost.shell(
+            f"sudo systemctl reset-failed {service_name}.service",
+            module_ignore_errors=True
+        )
+        ret = duthost.shell(
+            f"sudo systemctl restart {service_name}.service",
+            module_ignore_errors=True
+        )
+        rate_limited = is_hitting_start_limit(duthost, service_name)
+    else:
+        logger.info(
+            f"StartLimitHit pre-detected for {service_name}, applying reset-failed and "
+            f"fixed backoff {backoff_seconds}s before start"
+        )
+        # Force the recovery path below without attempting an immediate restart.
+        ret = {"rc": 1}
+        rate_limited = True
+
+    # 2/3) Recovery path: reset-failed + backoff + start if needed
+    if ret.get("rc", 1) != 0 or rate_limited or not is_container_running(duthost, service_name):
+        duthost.shell(
+            f"sudo systemctl reset-failed {service_name}.service",
+            module_ignore_errors=True
+        )
+        time.sleep(backoff_seconds if rate_limited else 1)
+        duthost.shell(
+            f"sudo systemctl start {service_name}.service",
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            wait_until(verify_timeout, 1, 0, check_container_state, duthost, service_name, True),
+            f"{service_name} container did not become running after recovery start"
+        )
+
+    return True
+
+
 def get_group_program_info(duthost, container_name, group_name):
     """Gets program names, running status and their pids by analyzing the command
        output of "docker exec <container_name> supervisorctl status". Program name
@@ -476,25 +534,23 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         logger.warning(f"Issue trying to clear console port: {e}")
 
     # Set up console host
-    host = None
     for attempt in range(1, 4):
         try:
-            host = ConsoleHost(console_type=console_type,
-                               console_host=console_host,
-                               console_port=console_port,
-                               sonic_username=creds['sonicadmin_user'],
-                               sonic_password=sonic_password,
-                               console_username=console_username,
-                               console_password=creds['console_password'][console_type],
-                               console_device=console_device)
-            break
+            return ConsoleHost(
+                console_type=console_type,
+                console_host=console_host,
+                console_port=console_port,
+                sonic_username=creds["sonicadmin_user"],
+                sonic_password=sonic_password,
+                console_username=console_username,
+                console_password=creds["console_password"][console_type],
+                console_device=console_device,
+            )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
             continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
-
-    return host
 
 
 def creds_on_dut(duthost):
