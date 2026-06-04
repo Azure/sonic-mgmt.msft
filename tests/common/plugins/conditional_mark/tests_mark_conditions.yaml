@@ -255,8 +255,10 @@ bfd/test_bfd.py::test_bfd_basic:
       - "asic_type in ['vs']"
   xfail:
     reason: "Test might failed due to https://github.com/sonic-net/sonic-mgmt/issues/19519"
+    conditions_logical_operator: or
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/19519
+      - "platform in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0', 'x86_64-kvm_x86_64-r0']"
 
 bfd/test_bfd.py::test_bfd_echo_mode:
   skip:
@@ -345,6 +347,7 @@ bgp/test_bgp_allow_list.py:
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "'isolated' in topo_name"
 
 bgp/test_bgp_bbr.py:
   skip:
@@ -670,13 +673,13 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
     conditions:
-      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-64-breakout', 'dualtor-120']"
+      - "'dualtor' not in topo_name"
 
 cacl/test_cacl_application.py::test_cacl_application_nondualtor:
   skip:
     reason: "test_cacl_application is only supported on non dualtor topology"
     conditions:
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-120']"
+      - "'dualtor' in topo_name"
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
@@ -2167,11 +2170,6 @@ fib/test_fib.py::test_ipinip_hash:
     conditions:
       - "asic_type in ['mellanox']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
-
-fib/test_fib.py::test_ipinip_hash[ipv4:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
       - "'-v6-' in topo_name"
 
 fib/test_fib.py::test_ipinip_hash_negative[ipv4:
