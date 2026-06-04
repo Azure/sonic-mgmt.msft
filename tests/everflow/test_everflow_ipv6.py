@@ -13,6 +13,8 @@ import random
 from .everflow_test_utilities import setup_info, skip_ipv6_everflow_tests                                 # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
 from tests.common.macsec.macsec_helper import MACSEC_INFO
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1")
@@ -204,7 +206,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
             everflow_dut = setup_info[DOWN_STREAM]['everflow_dut']
             remote_dut = setup_info[DOWN_STREAM]['remote_dut']
 
-        table_name = self._get_table_name(everflow_dut)
+        table_name = self._get_table_name(everflow_dut, self.acl_stage())
         temporary_table = False
 
         duthost_set = set()
@@ -217,11 +219,17 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
         for duthost in duthost_set:
             if temporary_table:
-                self.apply_acl_table_config(duthost, table_name, "MIRRORV6", config_method)
+                inst_list = duthost.get_sonic_host_and_frontend_asic_instance()
+                for inst in inst_list:
+                    self.apply_acl_table_config(duthost, table_name, "MIRRORV6", config_method,
+                                                bind_namespace=getattr(inst, 'namespace', None))
 
             self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"],
                                        config_method, rules=EVERFLOW_V6_RULES)
             self.apply_ip_type_rule(duthost, 6)
+            # Wait for ACL rules to be programmed
+            pytest_assert(wait_until(120, 2, 0, everflow_utils.validate_acl_rules_in_asic_db, duthost),
+                          "ACL rules are not programmed")
 
         everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
@@ -234,16 +242,17 @@ class EverflowIPv6Tests(BaseEverflowTest):
                 self.remove_acl_table_config(duthost, table_name, config_method)
 
     # TODO: This can probably be refactored into a common utility method later.
-    def _get_table_name(self, duthost):
+    def _get_table_name(self, duthost, acl_stage="ingress"):
         show_output = duthost.command("show acl table")
 
         table_name = None
         for line in show_output["stdout_lines"]:
             if "MIRRORV6" in line:
-                # NOTE: Once we branch out the sonic-mgmt repo we can skip the version check.
-                if "201811" in duthost.os_version or self.acl_stage() in line:
-                    table_name = line.split()[0]
-                    break
+                if acl_stage in line:
+                    # NOTE: Once we branch out the sonic-mgmt repo we can skip the version check.
+                    if "201811" in duthost.os_version or self.acl_stage() in line:
+                        table_name = line.split()[0]
+                        break
 
         return table_name
 
