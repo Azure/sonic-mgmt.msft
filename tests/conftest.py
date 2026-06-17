@@ -245,6 +245,12 @@ def pytest_addoption(parser):
     #################################
     parser.addoption("--run-stress-tests", action="store_true", default=False, help="Run only tests stress tests")
 
+    #################################
+    #   Port error test options     #
+    #################################
+    parser.addoption("--collected-ports-num", action="store", default=5, type=int,
+                     help="Number of ports to collect for testing (default: 5)")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
