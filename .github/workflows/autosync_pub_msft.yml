@@ -43,7 +43,7 @@ jobs:
         run: |
           set -ex
 
-          branches="202412 202506 202512 202511_azd"
+          branches="202412 202506 202511_azd"
           pushd sonic-mgmt.msft
 
           [ -z "$branches" ] && exit 1
