@@ -168,6 +168,12 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
             ).format(len(failures))
 
     else:
+        """ Poll interval and timeout for waiting on counter updates """
+        POLL_INTERVAL = 0.5
+        POLL_TIMEOUT = 10
+        """ Retry sending frames once if the counter does not update in time """
+        MAX_RETRIES = 2
+
         for intf in active_phy_intfs:
             """only check priority 3 and 4: lossless priorities"""
             for priority in range(3, 5):
@@ -196,13 +202,33 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                         cmd = 'docker exec %s "python %s -i %s -p %d -t %d -n %d"' % (
                             onyx_pfc_container_name, PFC_GEN_FILE_ABSOLUTE_PATH,
                             peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
-                        peerdev_ans.host.config(cmd)
+                        send_frames = lambda: peerdev_ans.host.config(cmd)  # noqa: E731
                     else:
                         cmd = "sudo python %s -i %s -p %d -t %d -n %d" % (
                             PFC_GEN_FILE_DEST, peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
-                        peerdev_ans.host.command(cmd)
+                        send_frames = lambda: peerdev_ans.host.command(cmd)  # noqa: E731
 
-                time.sleep(5)
+                    send_frames()
+
+                pfc_rx = {}
+                for attempt in range(1, MAX_RETRIES + 1):
+                    """ Poll until counter reaches PKT_COUNT or timeout """
+                    deadline = time.time() + POLL_TIMEOUT
+                    while time.time() < deadline:
+                        pfc_rx = duthost.sonic_pfc_counters(method="get")['ansible_facts']
+                        if asic_type == 'vs' or pfc_rx[intf]['Rx'][priority] == str(PKT_COUNT):
+                            break
+                        time.sleep(POLL_INTERVAL)
+
+                    if asic_type == 'vs' or pfc_rx[intf]['Rx'][priority] == str(PKT_COUNT):
+                        break
+
+                    if attempt < MAX_RETRIES:
+                        logger.warning(
+                            "Counter not updated for intf {} priority {} after {}s, retrying ({}/{})".format(
+                                intf, priority, POLL_TIMEOUT, attempt, MAX_RETRIES))
+                        duthost.sonic_pfc_counters(method="clear")
+                        send_frames()
 
                 pfc_rx = duthost.sonic_pfc_counters(
                     method="get")['ansible_facts']
