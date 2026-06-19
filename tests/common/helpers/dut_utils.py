@@ -372,7 +372,7 @@ def get_sai_sdk_dump_file(duthost, dump_file_name):
     cmd_gen_sdk_dump = f"docker exec syncd bash -c 'saisdkdump -f {full_path_dump_file}' "
     duthost.shell(cmd_gen_sdk_dump)
 
-    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd:{full_path_dump_file}  {full_path_dump_file}"
+    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd: {full_path_dump_file}  {full_path_dump_file}"
     duthost.shell(cmd_copy_dmp_from_syncd_to_host)
 
     compressed_dump_file = f"/tmp/{dump_file_name}.tar.gz"
@@ -419,6 +419,45 @@ def is_mellanox_fanout(duthost, localhost):
         return False
 
     return True
+
+
+def get_unsupported_fanout_ports(duthost, localhost):
+    """
+    Identifies and returns the set of DUT interface ports connected to a TH3 fanout device.
+    """
+    broadcom_th3_hwskus = {"DellEMC-Z9332f-O32", "DellEMC-Z9332f-M-O16C64"}
+    unsupported_dut_ports = set()
+
+    if duthost.facts.get("asic_type") == "vs":
+        return unsupported_dut_ports
+
+    try:
+        dut_facts = localhost.conn_graph_facts(host=duthost.hostname,
+                                               filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+    except RunAnsibleModuleFail as e:
+        logger.info("Get dut_facts failed, reason: %s", e.results.get('msg', e))
+        return unsupported_dut_ports
+
+    dev_conn = dut_facts["device_conn"][duthost.hostname]
+    device_info = dut_facts.get("device_info", {})
+
+    for dut_port, conn_metadata in dev_conn.items():
+        fanout_host = conn_metadata.get("peerdevice")
+        if not fanout_host:
+            continue
+        fanout_sku = device_info.get(fanout_host, {}).get("HwSku")
+        if fanout_sku is None:
+            try:
+                fanout_facts = localhost.conn_graph_facts(
+                    host=fanout_host, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+                fanout_sku = fanout_facts["device_info"][fanout_host]["HwSku"]
+            except RunAnsibleModuleFail:
+                continue
+
+        if fanout_sku in broadcom_th3_hwskus:
+            unsupported_dut_ports.add(dut_port)
+
+    return unsupported_dut_ports
 
 
 def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
