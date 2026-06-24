@@ -762,6 +762,9 @@ def duthost_bgp_config(duthosts,
                   'Error while reloading config in {} !!!!!'.format(duthosts[1].hostname))
     logger.info('Config Reload Successful in {} !!!'.format(duthosts[1].hostname))
     wait(DUT_TRIGGER, "For configs to be loaded on the duts")
+    for duthost in duthosts:
+        duthost.command("sudo TSB")
+    wait(DUT_TRIGGER, "For TSB")
 
 
 def generate_mac_address():
@@ -1070,6 +1073,13 @@ def __snappi_bgp_config(api,
         flow1.rate.percentage = 10
         flow1.metrics.enable = True
         flow1.metrics.loss = True
+        if "ipv4" in traffic_name.lower():
+            flow1.packet.ethernet().ipv4().udp()
+        else:
+            flow1.packet.ethernet().ipv6().udp()
+        flow1.packet[2].src_port.increment.start = 1000
+        flow1.packet[2].src_port.increment.step = 1
+        flow1.packet[2].src_port.increment.count = 1000
 
     if 'IPv4' in traffic_type and 'IPv6' in traffic_type:
         for route in route_range['IPv4']:
@@ -2038,6 +2048,7 @@ def get_convergence_for_ungraceful_restart(duthosts,
             if duthost.hostname == device_name:
                 send_kernel_panic_command(duthost, creds)
         wait(DUT_TRIGGER, "Issued ungraceful restart on {}".format(device_name))
+        flow_stats = get_flow_stats(api)
         for i in range(0, len(traffic_type)):
             pytest_assert(float((int(flow_stats[i].frames_tx_rate) - int(flow_stats[i].frames_rx_rate)) /
                           int(flow_stats[i].frames_tx_rate)) < 0.005,
