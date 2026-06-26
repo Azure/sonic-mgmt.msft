@@ -178,6 +178,7 @@ arp/test_arp_update.py::test_dut_ping_learns_mac:
     reason: "Skip test_dut_ping_learns_mac on dualtor"
     conditions:
       - "'dualtor' in topo_name"
+      - "'-v6-' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/24598"
 
 arp/test_arp_update.py::test_kernel_asic_mac_mismatch\[.*ipv4.*\]:
   regex: true
@@ -3731,9 +3732,11 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
 
 platform_tests/test_reload_config.py::test_reload_configuration:
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo or smartswitch platform"
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24543 and asic_type in ['mellanox'] and 'sn4280' in platform"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
@@ -3741,9 +3744,11 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     conditions:
       - "asic_type in ['cisco-8000']"
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo or smartswitch platform"
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24543 and asic_type in ['mellanox'] and 'sn4280' in platform"
 
 #######################################
 #####     process_monitoring      #####
@@ -5199,8 +5204,10 @@ vxlan/test_vnet_bgp_route_precedence.py:
       - "release in ['202411']"
   xfail:
     reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23824"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23824"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21895 and '-v6-' in topo_name and asic_type in ['mellanox']"
 
 vxlan/test_vnet_decap.py::test_vnet_decap:
   xfail:
