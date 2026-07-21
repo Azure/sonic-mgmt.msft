@@ -3616,9 +3616,11 @@ ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
     conditions:
       - "asic_type in ['vpp'] and platform in ['x86_64-kvm_x86_64-r0']"
   xfail:
-    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform"
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform or IPv6-only issue https://github.com/sonic-net/sonic-mgmt/issues/20731"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/16218 and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20731 and '-v6-' in topo_name"
 
 ipfwd/test_nhop_group.py::test_nhop_group_member_count:
   xfail:
@@ -5600,6 +5602,7 @@ telemetry/test_telemetry_srv6.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "'bmc' in topo_type"
 
 telemetry/test_telemetry_srv6.py::test_poll_mode_srv6_sid_counters:
