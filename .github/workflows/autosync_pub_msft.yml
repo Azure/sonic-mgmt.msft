@@ -43,7 +43,7 @@ jobs:
         run: |
           set -ex
 
-          branches="202412 202506 202511_azd 202601 202603 202606 202607 202608"
+          branches="202412 202506 202511_azd 202601 202603 202606 202607 202608 000002"
           pushd sonic-mgmt.msft
 
           [ -z "$branches" ] && exit 1
@@ -80,6 +80,9 @@ jobs:
               branch_head=202605
             fi
 
+            if [[ $branch_head == "000002" ]]; then
+              branch_head=202605
+            fi
             git ls-remote origin refs/heads/$branch_base || continue
             git ls-remote head refs/heads/$branch_head || continue
 
