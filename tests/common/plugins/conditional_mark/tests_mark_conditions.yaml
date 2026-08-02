@@ -811,7 +811,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "(topo_name not in ['dualtor-aa', 'dualtor-aa-64-breakout', 'ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't1', 't1-lag', 't1-28-lag', 't1-48-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx', 'm1-48', 'm1-44', 'm1-108', 'm1-128', 't0-isolated-d16u16s1', 't1-isolated-d28u1', 't0-isolated-d32u32s2', 't1-isolated-d56u2'] and 't2' not in topo_type and topo_type not in ['lrh', 'urh'])"
+      - "(topo_name not in ['dualtor-aa', 'dualtor-aa-64-breakout', 'ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't1', 't1-lag', 't1-28-lag', 't1-48-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx', 'm1-48', 'm1-44', 'm1-108', 'm1-128', 't0-isolated-d16u16s1', 't1-isolated-d28u1', 't0-isolated-d32u32s2', 't1-isolated-d56u2', 't0-isolated-d256u256s2', 't1-isolated-d448u15-lag', 't0-isolated-v6-d32u32s2', 't1-isolated-v6-d56u1-lag'] and 't2' not in topo_type and topo_type not in ['lrh', 'urh'])"
   xfail:
     reason: "xfail for IPv6-only topologies"
     conditions:
@@ -845,11 +845,11 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
 
 copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
   skip:
-    reason: "Copp test_trap_neighbor_miss is not supported on broadcom platforms and non-TOR topologies"
+    reason: "Copp test_trap_neighbor_miss is not supported on broadcom platforms in 202411 and non-TOR topologies"
     conditions_logical_operator: or
     conditions:
       - "(asic_type in ['broadcom'] and release in ['202411'])"
-      - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't0-isolated-d16u16s1', 't0-isolated-d32u32s2'])"
+      - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't0-isolated-d16u16s1', 't0-isolated-d32u32s2', 't0-isolated-d256u256s2', 't0-isolated-v6-d32u32s2'])"
 
 #######################################
 #####            crm              #####
@@ -1191,9 +1191,11 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[request:
 
 dhcp_relay/test_dhcpv4_relay.py:
   skip:
-    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511 / Test is not stable for KVM PR checks"
+    conditions_logical_operator: or
     conditions:
       - "release < '202511'"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26645"
 
 dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_override-sonic-relay-agent]:
   skip:
@@ -1203,9 +1205,11 @@ dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_o
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
-    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    reason: "Need to skip for platform x86_64-8111_32eh_o-r0 / Test is not stable for KVM PR checks"
+    conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26645"
 
 dhcp_relay/test_dhcpv6_relay.py::TestDhcpv6RelayWithMultipleVlan:
   skip:
@@ -4167,6 +4171,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
+platform_tests/test_intf_fec.py::test_verify_fec_stats_counters:
+  skip:
+    reason: "Broadcom TH does not support FEC_SYMBOL_ERR at 50G"
+    conditions:
+      - "'Arista-7060CX-32S-D48C8'in hwsku"
+
 platform_tests/test_reboot.py:
   skip:
     reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
@@ -5867,6 +5877,12 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
 #######################################
 #####           vxlan            #####
 #######################################
+vxlan/test_scale_ecmp.py:
+  skip:
+    reason: "test_scale_ecmp is not supported on dualtor topologies"
+    conditions:
+      - "'dualtor' in topo_name"
+
 vxlan/test_vnet_bgp_route_precedence.py:
   skip:
     reason: "test_vnet_bgp_route_precedence can only run on cisco, mnlx and VPP platforms. Also skip in 202411"
@@ -6132,6 +6148,12 @@ vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_sc
     reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20725"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20725 and '-v6-' in topo_name"
+
+vxlan/test_vxlan_tunnel_route_scale.py:
+  skip:
+    reason: "test_vxlan_tunnel_route_scale is not supported on dualtor topologies"
+    conditions:
+      - "'dualtor' in topo_name"
 
 vxlan/test_vxlan_underlay_ecmp.py:
   skip:
