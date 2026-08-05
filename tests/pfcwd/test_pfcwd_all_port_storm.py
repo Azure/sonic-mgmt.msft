@@ -2,6 +2,8 @@ import logging
 import os
 import pytest
 
+from collections import defaultdict
+
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.pfc_storm import PFCMultiStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -283,6 +285,19 @@ class TestPfcwdAllPortStorm(object):
                 test_port = device_conn[intf]['peerport']
                 if test_port in setup_pfc_test['test_ports']:
                     selected_test_ports.append(test_port)
+
+        vlan_neighbor_ports = defaultdict(list)
+        for port, info in setup_pfc_test["test_ports"].items():
+            if info.get("test_port_type") == "vlan":
+                vlan_neighbor_ports[info.get("test_neighbor_addr")].append(port)
+
+        duplicate_neighbors = {
+            ip: ports
+            for ip, ports in vlan_neighbor_ports.items()
+            if ip and len(ports) > 1
+        }
+        logger.info("Duplicate VLAN neighbor groups: %s", duplicate_neighbors)
+
         resolve_arp(duthost, ptfhost, setup_pfc_test['test_ports'],
                     setup_pfc_test["vlan"], setup_pfc_test["ip_version"])
         with send_background_traffic(duthost, ptfhost, queues, selected_test_ports, setup_pfc_test['test_ports'],
