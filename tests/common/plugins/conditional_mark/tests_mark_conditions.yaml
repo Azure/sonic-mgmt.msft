@@ -2911,46 +2911,35 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnmi_countersdb.py:
+  skip:
+    reason: "Not available in BMC"
+    conditions:
+      - "'bmc' in topo_type"
   xfail:
     reason: "This test does not supported multi-asic. Skipping test for multi-asic DUTs."
     conditions:
       - "is_multi_asic==True"
 
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_01:
-  skip:
-    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_02:
-  skip:
-    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions_logical_operator: or
+    reason: "dut ipv6 mgmt ip not supported"
     conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
-      - "'bmc' in topo_type"
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
   skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions_logical_operator: or
+    reason: "dut ipv6 mgmt ip not supported"
     conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
-      - "'bmc' in topo_type"
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_output:
   skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions_logical_operator: or
+    reason: "dut ipv6 mgmt ip not supported"
     conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
-      - "'bmc' in topo_type"
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
   skip:
