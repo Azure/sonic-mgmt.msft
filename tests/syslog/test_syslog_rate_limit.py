@@ -3,10 +3,11 @@ import logging
 import os
 import pytest
 import random
+import re
 import time
 
 from tests.common.config_reload import config_reload
-from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release, wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.sonic_db import SonicDbCli
@@ -15,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 RATE_LIMIT_BURST = 100
 RATE_LIMIT_INTERVAL = 10
+SYSLOG_FORWARD_TIMEOUT = 120
+SYSLOG_FORWARD_INTERVAL = 2
 # Generate 101 packets in tests/syslog/log_generator.py, so that 1 log message will be dropped by rsyslogd
 LOG_MESSAGE_GENERATE_COUNT = 101
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -245,6 +248,18 @@ def verify_config_rate_limit_fail(duthost, service_name):
     pytest_assert('Error' in output, 'Error: config syslog rate limit for {}: {}'.format(service_name, output))
 
 
+def _wait_presence_logs_forwarded(duthost, start_marker, presence_log_regex):
+    """Wait for asynchronous rate-limit notifications in this analyzer window."""
+
+    def _all_expected_present():
+        escaped_marker = re.escape(start_marker).replace('/', r'\/')
+        captured = duthost.shell("sudo awk '/{}/,0' /var/log/syslog".format(escaped_marker),
+                                 module_ignore_errors=True)['stdout']
+        return all(re.search(regex, captured) for regex in presence_log_regex)
+
+    return wait_until(SYSLOG_FORWARD_TIMEOUT, SYSLOG_FORWARD_INTERVAL, 0, _all_expected_present)
+
+
 def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expect_log_regex, expect_log_matches,
                                          presence_log_regex=None, is_host=False):
     """Generator syslog with a script and verify that syslog rate limit reached
@@ -281,10 +296,8 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
 
     with loganalyzer:
         duthost.command(run_generator_cmd)
-        # Wait for rsyslogd to forward the rate-limiting notification from the container
-        # to the host syslog. Without this, the notification may arrive after the
-        # LogAnalyzer end marker, causing intermittent test failures.
-        time.sleep(5)
+        if presence_log_regex:
+            _wait_presence_logs_forwarded(duthost, loganalyzer._markers[-1], presence_log_regex)
 
     if presence_log_regex:
         presence_analyzer.analyze(presence_marker)
