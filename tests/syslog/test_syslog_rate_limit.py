@@ -30,7 +30,7 @@ DOCKER_LOG_GENERATOR_FILE = '/log_generator.py'
 # Both indicate that rate limiting is working. The exact form and frequency are
 # rsyslogd-version-dependent, so only a presence check is performed (not an exact count).
 LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = \
-    r'.*rate-limit-test>: (?:begin to drop messages|messages lost) due to rate-limiting.*'
+    r'.*(?:rate-limit-test>: begin to drop messages|messages lost due to rate-limiting).*'
 # Log pattern for tests/syslog/log_generator.py
 LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
 
