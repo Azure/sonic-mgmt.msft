@@ -507,6 +507,14 @@ def check_health_field_not_equal(duthost, field, unexpected):
 
 
 def check_system_health_led_info(duthost):
+    # BMC platforms do not implement the system status LED chassis APIs, so
+    # 'show system-health summary' fails on them. Skip the LED check there.
+    if duthost.is_bmc():
+        logger.warning(
+            "Skipping system status LED check: BMC platform '%s' does not implement "
+            "the system status LED APIs.", duthost.facts.get('platform'))
+        return True
+
     system_health_summary = duthost.shell('show system-health summary')['stdout']
 
     "System status LED  red"
