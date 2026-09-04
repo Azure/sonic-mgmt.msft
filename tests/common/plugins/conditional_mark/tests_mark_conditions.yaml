@@ -2763,7 +2763,7 @@ generic_config_updater/test_pfcwd_interval.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type not in ['mellanox', 'cisco-8000']"
-      - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2',
+      - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C508O1X2',
                    'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
       - "'bmc' in topo_type"
 
@@ -5266,10 +5266,10 @@ snmp/test_snmp_queue.py:
 snmp/test_snmp_queue_counters.py:
   skip:
     conditions_logical_operator: OR
-    reason: "Have an known issue on kvm testbed / Unsupported in M* topos or issue #17929 on Mellanox platform"
+    reason: "Have an known issue on kvm testbed / Unsupported in M* and C0 topos / issue #17929 on Mellanox platform"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
-      - "topo_type in ['m0', 'mx', 'm1']"
+      - "topo_type in ['m0', 'mx', 'm1', 'c0']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/17929 and asic_type in ['mellanox']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
@@ -5740,6 +5740,16 @@ upgrade_path/test_upgrade_path.py::test_upgrade_path_t2_delayed:
     conditions:
       - "'t2' not in topo_type"
 
+upgrade_path/test_warmboot_data_consistency.py::test_warmboot_data_consistency:
+  xfail:
+    reason: >
+      Keep 202605 runs non-blocking while collecting warm-vs-cold snapshots for
+      the assertion-mask gaps tracked by
+      https://github.com/sonic-net/sonic-mgmt/issues/27541.
+    strict: false
+    conditions:
+      - "release in ['202605'] and https://github.com/sonic-net/sonic-mgmt/issues/27541"
+
 #######################################
 #####            vlan             #####
 #######################################
@@ -6088,9 +6098,12 @@ vxlan/test_vxlan_decap.py:
 
 vxlan/test_vxlan_decap_ttl.py:
   skip:
-    reason: "VxLAN tunnel TTL decap mode test is not supported on multi-ASIC platform. Also this test can only run and currently passes only on some platforms."
+    reason: "VxLAN tunnel TTL decap mode test is not supported on multi-ASIC platforms and dualtor topologies. Also this test can only run and currently passes only on some platforms."
+    conditions_logical_operator: OR
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "is_multi_asic == True"
+      - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']"
+      - "'dualtor' in topo_name"
 
 vxlan/test_vxlan_ecmp.py:
   skip:
