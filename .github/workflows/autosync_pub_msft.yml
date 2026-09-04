@@ -52,9 +52,6 @@ jobs:
             branch_base=$branch
             branch_head=$branch
 
-            if [[ $branch_head == "master" ]]; then
-              branch_head=master
-            fi
             if [[ $branch_head == "202412" ]]; then
               branch_head=202411
             fi
