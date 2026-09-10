@@ -2,7 +2,7 @@ steps:
 - script: |
     set -x
 
-    sudo uv pip install --system natsort
+    pip3 install natsort
 
     CHECK_RESULT=$(python3 ./.azure-pipelines/dependency_check/dependency_check.py tests)
     if [[ "$CHECK_RESULT" == "True" ]]; then
