@@ -42,7 +42,8 @@ stages:
     displayName: "Static Analysis"
     timeoutInMinutes: 10
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool:
+      vmImage: ubuntu-latest
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
@@ -50,7 +51,8 @@ stages:
     displayName: "Validate Test Cases"
     timeoutInMinutes: 30
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool:
+      vmImage: ubuntu-latest
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
       parameters:
@@ -59,7 +61,8 @@ stages:
   - job: dependency_check
     displayName: "Dependency Check"
     timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c
+    pool:
+      vmImage: ubuntu-latest
     steps:
       - template: .azure-pipelines/dependency-check.yml
 
