@@ -213,6 +213,8 @@ def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_i
     res = ptfhost.shell('cat /sys/class/net/{}/address'.format(ptf_interface))
     original_mac = res['stdout']
     ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, scapy.Ether(rcvd_pkt).dst))
+    # The SYN source is the MAC the DUT actually uses on this egress path.
+    dut_mac = scapy.Ether(rcvd_pkt).src
 
     ip_cmd = "-6" if is_ipv6_only else ""
     prefix_len = "/64" if is_ipv6_only else "/24"
@@ -232,7 +234,7 @@ def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_i
     )
     ptfhost.shell(
         "ip %s neigh add %s lladdr %s dev %s"
-        % (ip_cmd, local_addr, duthost.facts["router_mac"], ptf_interface)
+        % (ip_cmd, local_addr, dut_mac, ptf_interface)
     )
     ptfhost.shell(
         "ip %s route replace %s dev %s"
@@ -257,7 +259,7 @@ def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_i
         )
         ptfhost.shell(
             "ip %s neigh del %s lladdr %s dev %s"
-            % (ip_cmd, local_addr, duthost.facts["router_mac"], ptf_interface)
+            % (ip_cmd, local_addr, dut_mac, ptf_interface)
         )
         ptfhost.shell(
             "ip %s addr del %s dev %s"
