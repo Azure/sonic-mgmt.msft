@@ -741,6 +741,7 @@
           duts_list: "{{ testbed_facts['duts'] | default([]) }}"
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
+          device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
         become: true
         when: enable_macsec is not defined
 
@@ -763,6 +764,7 @@
           num_asics: "{{ num_asics }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
+          device_conn: "{{ device_conn[inventory_hostname] | default({}) }}"
         become: true
         when: "('t2' in topo) and (enable_macsec is defined)"
 
