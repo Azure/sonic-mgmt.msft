@@ -22,6 +22,7 @@ import time
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 NAT_ENABLE_KEY = "nat_enabled_on_{}"
+CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
 # Ansible config files
 LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../../ansible/files")))
@@ -508,6 +509,21 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
     if console_type in creds["console_password"]:
         sonic_password.extend(creds["console_password"][console_type])
 
+    try:
+        current_passwd = get_dut_current_passwd(
+            duthost.mgmt_ip,
+            duthost.mgmt_ipv6,
+            creds["sonicadmin_user"],
+            [password for password in sonic_password if password],
+        )
+        if current_passwd and current_passwd in sonic_password:
+            sonic_password.remove(current_passwd)
+        if current_passwd:
+            sonic_password.insert(0, current_passwd)
+    except Exception as e:
+        logger.warning(
+            f"Could not resolve current DUT console password, using default order: {e}")
+
     # Attempt to clear the console port
     try:
         duthost_clear_console_port(
@@ -535,6 +551,8 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
             )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
+            if attempt < 3:
+                time.sleep(CONSOLE_RECONNECT_BACKOFF_SECS)
             continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
