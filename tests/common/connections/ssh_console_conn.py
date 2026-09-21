@@ -62,7 +62,8 @@ class SSHConsoleConn(BaseConsoleConn):
                                password=self.password,
                                menu_port=self.menu_port,
                                pri_prompt_terminator=r".*login")
-        # Attempt all sonic password
+        self._recover_to_login_prompt()
+        # Attempt all sonic passwords
         for i in range(0, len(self.sonic_password)):
             password = self.sonic_password[i]
             try:
@@ -71,6 +72,7 @@ class SSHConsoleConn(BaseConsoleConn):
             except NetMikoAuthenticationException as e:
                 if i == len(self.sonic_password) - 1:
                     raise e
+                self._resync_to_login_prompt()
             else:
                 break
 
@@ -90,13 +92,64 @@ class SSHConsoleConn(BaseConsoleConn):
         time.sleep(0.3 * self.global_delay_factor)
         self.clear_buffer()
 
+    def _recover_to_login_prompt(self, max_attempts=4, delay_factor=1):
+        """Return a leftover authenticated shell to a fresh login prompt."""
+        shell_prompt_patterns = (
+            r'admin@.*:.*[\$#]',
+            r'root@.*:.*#',
+            r'.*@sonic.*[\$#]',
+        )
+        delay_factor = max(self.select_delay_factor(delay_factor), 1)
+        for _ in range(max_attempts):
+            try:
+                self.write_channel(self.RETURN)
+                output = ""
+                for _ in range(4):
+                    time.sleep(0.5 * delay_factor)
+                    output += self.read_channel()
+            except Exception as e:
+                self.logger.warning(f"Error probing console state: {e}")
+                return
+
+            if re.search(r"login:\s*$", output, flags=re.I | re.M):
+                return
+            if any(re.search(pattern, output) for pattern in shell_prompt_patterns):
+                self.logger.warning("Console is at a leftover shell prompt; sending 'exit'")
+                try:
+                    self.write_channel("exit" + self.RETURN)
+                    time.sleep(delay_factor)
+                except Exception as e:
+                    self.logger.warning(f"Error sending exit during recovery: {e}")
+                    return
+
+        self.clear_buffer()
+
+    def _resync_to_login_prompt(self, max_loops=20, delay_factor=1):
+        """Wait for a fresh login prompt after a failed password attempt."""
+        delay_factor = max(self.select_delay_factor(delay_factor), 1)
+        self.clear_buffer()
+        for _ in range(max_loops):
+            try:
+                self.write_channel(self.RETURN)
+                time.sleep(0.5 * delay_factor)
+                output = self.read_channel()
+                if re.search(r"login:\s*$", output, flags=re.I | re.M):
+                    self.clear_buffer()
+                    return
+            except EOFError:
+                self.remote_conn.close()
+                raise NetMikoAuthenticationException(
+                    "Login failed: {}".format(self.host))
+
+        self.clear_buffer()
+
     def login_stage_2(self,
                       username,
                       password,
                       menu_port=None,
                       pri_prompt_terminator=r".*# ",
                       alt_prompt_terminator=r".*\$ ",
-                      username_pattern=r"(?:user:|username|login|user name)",
+                      username_pattern=r"(?:user:|username|login:|user name)",
                       pwd_pattern=r"assword",
                       delay_factor=1,
                       max_loops=20
@@ -104,7 +157,7 @@ class SSHConsoleConn(BaseConsoleConn):
         """
         Perform a stage_2 login
         """
-        delay_factor = self.select_delay_factor(delay_factor)
+        delay_factor = max(self.select_delay_factor(delay_factor), 1)
         time.sleep(1 * delay_factor)
 
         output = ""
@@ -194,8 +247,11 @@ class SSHConsoleConn(BaseConsoleConn):
             bool: True if at SONiC prompt, False otherwise (including GRUB, ONIE, boot stages, etc.)
         """
         try:
-            # Read whatever is currently in the buffer
-            output = self.read_channel()
+            output = ""
+            for _ in range(4):
+                self.write_channel(self.RETURN)
+                time.sleep(0.5)
+                output += self.read_channel()
         except Exception as e:
             self.logger.warning(f"Error reading channel: {e}, assuming not at SONiC prompt")
             return False
