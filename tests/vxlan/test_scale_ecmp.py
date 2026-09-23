@@ -30,6 +30,13 @@ INITIAL_ENDPOINTS = ["100.0.1.10", "100.0.2.10"]
 CHANGED_ENDPOINTS = ["100.0.3.10", "100.0.4.10"]
 PACKET_MULTIPLIER = 10
 
+# Platform-specific ECMP limits
+PLATFORM_ECMP_LIMITS = {
+    "8101": 510,
+    "8102": 510,
+    "8223": 4094
+}
+
 
 # ---------- Utility ----------
 def get_loopback_ip(cfg_facts):
@@ -191,7 +198,18 @@ def one_vnet_setup_teardown(
         vxlan_sport = request.config.option.vxlan_sport
         vxlan_mask = request.config.option.vxlan_mask
 
-        num_endpoints = scaled_vnet_params.get("num_endpoints", 511) or 511
+        # Determine platform-specific ECMP limit
+        platform = duthost.facts.get("platform", "").lower()
+        max_ecmp_limit = None
+        for platform_key, limit in PLATFORM_ECMP_LIMITS.items():
+            if platform_key in platform:
+                max_ecmp_limit = limit
+                break
+
+        num_endpoints = int(scaled_vnet_params.get("num_endpoints"))
+        if max_ecmp_limit:
+            num_endpoints = min(num_endpoints, max_ecmp_limit)
+
         setup_params = vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
                                             config_facts, dut_indx, vxlan_port,
                                             vxlan_sport=vxlan_sport, vxlan_mask=vxlan_mask)
@@ -208,7 +226,25 @@ def one_vnet_setup_teardown(
     config_reload(duthost, safe_reload=True, yang_validate=False)
 
 
+@pytest.fixture(scope="function", autouse=True)
+def clean_vnet_route(one_vnet_setup_teardown):
+    """Clean VNET route state before each test"""
+    setup, duthost, _ = one_vnet_setup_teardown
+
+    # Delete the entire route entry to ensure clean state
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB del 'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}' || true"
+    )
+    time.sleep(2)
+
+    # Reprogram the route with initial endpoints and VNI
+    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, INITIAL_ENDPOINTS, VNI)
+
+    yield
+
 # ---------- PTF runner helper ----------
+
+
 def run_vxlan_ptf_test(ptfhost, endpoints, params, num_packets, mac_list=None):
     logger.info(f"Calling VXLAN ECMP PTF test: {len(endpoints)} endpoints, {num_packets} packets")
 
