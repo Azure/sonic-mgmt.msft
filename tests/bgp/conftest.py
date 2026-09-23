@@ -919,3 +919,13 @@ def vnet_count(request):
 @pytest.fixture(scope="module")
 def subif_per_vnet(request):
     return int(request.config.getoption("--subif_per_vnet"))
+
+
+@pytest.fixture(scope='module')
+def ip_version(tbinfo):
+    return 'v6' if is_ipv6_only_topology(tbinfo) else 'v4'
+
+
+@pytest.fixture(scope='module')
+def show_ip_interface_cmd(ip_version):
+    return SHOW_IP_INTERFACE_CMD[ip_version]
