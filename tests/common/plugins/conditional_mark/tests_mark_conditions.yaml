@@ -2910,12 +2910,6 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
-gnmi/test_gnmi_countersdb.py:
-  xfail:
-    reason: "This test does not supported multi-asic. Skipping test for multi-asic DUTs."
-    conditions:
-      - "is_multi_asic==True"
-
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_01:
   skip:
     reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
@@ -4384,6 +4378,9 @@ qos/test_qos_probe.py:
       - "hwsku in ['Mellanox-SN2700'] and https://github.com/sonic-net/sonic-mgmt/issues/22607"
       # Mellanox SPC3 (Spectrum 3)
       - "hwsku in ['Mellanox-SN4600C-C64'] and https://github.com/sonic-net/sonic-mgmt/issues/22608"
+      # Broadcom-DNX - Test provides duplicate coverage to test_qos_sai.py so disabling on DNX to avoid longer runtimes
+      # If we do want to run this on DNX SKUs we'll need https://github.com/sonic-net/sonic-mgmt/issues/27076 fixed
+      - "asic_subtype in ['broadcom-dnx']"
 
 qos/test_qos_probe.py::TestQosProbe::testQosHeadroomPoolProbe:
   xfail:
