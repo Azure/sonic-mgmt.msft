@@ -1537,8 +1537,8 @@ ecmp/test_fgnhg.py:
 #######################################
 everflow/test_everflow_ipv6.py::Test(In|E)gressEverflowIPv6::test_[a-zA-Z0-9_]+\[erspan_ipv4-:
   regex: true
-  xfail:
-    reason: "Xfail for IPv6-only topologies"
+  skip:
+    reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
 
@@ -1548,68 +1548,17 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_protocol[erspa
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_transport_protocol[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_transport_protocol[erspan_ipv6-cli-default]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_both_subnets[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dest_subnet[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dscp_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_dst_ipv6_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_fuzzy_subnets[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_invalid_tcp_rule[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
-
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_range_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_range_mirroring[erspan_ipv6-cli-default]:
   xfail:
@@ -1617,36 +1566,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_range_
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_range_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_src_port_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_src_port_range_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_next_header_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_source_subnet[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_src_ipv6_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -1658,27 +1578,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_src_ipv6_mirroring
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_tcp_application_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_tcp_flags_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_tcp_response_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_udp_application_mirroring[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -1724,7 +1624,8 @@ everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv6-m0_vla
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
 
-everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv4-erspan:
+everflow/test_everflow_per_interface.py::test_everflow_packet_format\[.*ipv4:
+  regex: true
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
@@ -1765,6 +1666,13 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_vla
       - "'dualtor' in topo_name"
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
+everflow/test_everflow_per_interface.py::test_everflow_per_interface\[.*ipv4:
+  regex: true
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
 
 everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_policer:
   skip:
@@ -2346,15 +2254,12 @@ generic_config_updater/test_dhcp_relay.py:
 
 generic_config_updater/test_dynamic_acl.py:
   skip:
-    reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test.  Known log error unrelated to test
-     on m0-2vlan testbed causes consistent failures
-     / Dynamic ACL is not supported in Cisco Q200 based platforms"
+    reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test / Known log error unrelated to test
+     on m0-2vlan testbed causes consistent failures."
     conditions_logical_operator: "OR"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
-      - "hwsku in ['Cisco-8111-O64']"
       - "topo_name in ['m0-2vlan']"
-      - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8102_64h_o-r0']"
 
 generic_config_updater/test_dynamic_acl.py::test_gcu_acl_arp_rule_creation[IPV4:
   skip:
@@ -2494,7 +2399,7 @@ generic_config_updater/test_pfcwd_interval.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type not in ['mellanox', 'cisco-8000']"
-      - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2',
+      - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C508O1X2',
                    'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
 
 generic_config_updater/test_pfcwd_status.py:
@@ -4266,6 +4171,12 @@ route/test_default_route.py::test_default_route_with_bgp_flap:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19925 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+route/test_duplicate_route.py::test_duplicate_routes:
+  xfail:
+    reason: "xfail due to GH issue https://github.com/sonic-net/sonic-mgmt/issues/20231"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20231"
+
 route/test_duplicate_route.py::test_duplicate_routes[4:
   skip:
     reason: "Skip for IPv6-only topologies"
@@ -5381,6 +5292,13 @@ vxlan/test_vxlan_decap_ttl.py:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
+vxlan/test_vxlan_decap_ttl.py::test_vxlan_decap_ttl\[v6-.*\]:
+  regex: true
+  skip:
+    reason: "IPv6 VXLAN tunnels are not supported on Mellanox Spectrum-1."
+    conditions:
+      - "asic_type in ['mellanox'] and asic_gen == 'spc1'"
+
 vxlan/test_vxlan_ecmp.py:
   skip:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
@@ -5468,6 +5386,12 @@ vxlan/test_vxlan_vnet_bgp_subintf.py:
     conditions:
       - "asic_type in ['cisco-8000']"
       - "release in ['202511']"
+
+vxlan/test_vxlan_vnet_ping_tsa.py:
+  skip:
+    reason: "Skip for AI backend/isolated topologies, as vnet-ping feature is not used"
+    conditions:
+      - "'isolated' in topo_name"
 
 #######################################
 #####           wan_lacp          #####
