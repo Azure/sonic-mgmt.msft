@@ -18,6 +18,7 @@ from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.sonic_db import AsicDbCli
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -387,6 +388,28 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
         duthost.command("sudo config bgp startup all")
         duthost.command("rm -rf {}".format(DUT_RUN_DIR))
     time.sleep(60)
+
+
+def validate_asic_route(duthost, prefix):
+    """
+    Check if a route exists in the routing table of the asic.
+    """
+    asicdb = AsicDbCli(duthost)
+    route_table = asicdb.dump("ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY")
+    if prefix in str(route_table):
+        return True
+    return False
+
+
+def validate_mirror_session_up(duthost, session_name):
+    """
+    Check if a mirror session is up.
+    """
+    cmd = f'sonic-db-cli STATE_DB HGET \"MIRROR_SESSION_TABLE|{session_name}\" status'
+    mirror_status = duthost.command(cmd)['stdout']
+    if 'active' in mirror_status:
+        return True
+    return False
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
@@ -817,6 +840,47 @@ class BaseEverflowTest(object):
         }
         self.apply_non_openconfig_acl_rle(duthost, extra_vars, rule_file)
 
+    def remove_outer_ip(self, packet_data):
+        """
+        The mirror packet from IP in IP tunnel would take an external IP header.
+        Remove the outer IP header from the IPinIP packet and keeps the original Ethernet header.
+
+        Args:
+            packet_data: Original IPinIP packet
+
+        Returns:
+            packet.Ether: Original Ethernet header + Inner IP header + payload
+        """
+        if isinstance(packet_data, bytes):
+            outer_pkt = packet.Ether(packet_data)
+        else:
+            outer_pkt = packet_data
+
+        if not outer_pkt.haslayer(packet.IP):
+            return None
+
+        outer_ip = outer_pkt[packet.IP]
+
+        if outer_ip.proto != 4:
+            return None
+
+        # Extract the original Ethernet header
+        original_eth = outer_pkt[packet.Ether]
+        eth_dst = original_eth.dst
+        eth_src = original_eth.src
+        eth_type = 0x0800
+
+        inner_payload = outer_ip.payload
+
+        # If the payload is Raw type, we need to re-parse it as IP
+        if isinstance(inner_payload, packet.Raw):
+            inner_ip_packet = packet.IP(bytes(inner_payload))
+        else:
+            inner_ip_packet = inner_payload
+        new_packet = packet.Ether(dst=eth_dst, src=eth_src, type=eth_type) / inner_ip_packet
+
+        return new_packet
+
     def send_and_check_mirror_packets(self,
                                       setup,
                                       mirror_session,
@@ -828,8 +892,8 @@ class BaseEverflowTest(object):
                                       dest_ports=None,
                                       expect_recv=True,
                                       valid_across_namespace=True,
-                                      erspan_ip_ver=4):
-
+                                      erspan_ip_ver=4,
+                                      multi_binding_acl=False):
         # In Below logic idea is to send traffic in such a way so that mirror traffic
         # will need to go across namespaces and within namespace. If source and mirror destination
         # namespace are different then traffic mirror will go across namespace via (backend asic)
@@ -871,7 +935,8 @@ class BaseEverflowTest(object):
                                                                                  direction,
                                                                                  mirror_packet,
                                                                                  src_port_metadata_map[src_port][1],
-                                                                                 erspan_ip_ver)
+                                                                                 erspan_ip_ver=erspan_ip_ver,
+                                                                                 multi_binding_acl=multi_binding_acl)
             # Avoid changing the original packet
             mirror_packet_sent = mirror_packet.copy()
             if src_port_metadata_map[src_port][0]:
@@ -893,7 +958,9 @@ class BaseEverflowTest(object):
                 _, received_packet = result
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
 
-                inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet_sent), erspan_ip_ver)
+                inner_packet = self._extract_mirror_payload(received_packet, len(mirror_packet_sent),
+                                                            erspan_ip_ver=erspan_ip_ver,
+                                                            multi_binding_acl=multi_binding_acl)
                 logging.info("Received inner packet: %s", inner_packet.summary())
 
                 inner_packet = Mask(inner_packet)
@@ -925,6 +992,11 @@ class BaseEverflowTest(object):
                     else:
                         mirror_packet_sent[packet.Ether].src = setup[direction]["egress_router_mac"]
 
+                if multi_binding_acl:
+                    inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
+                    inner_packet.set_do_not_care_scapy(packet.Ether, "src")
+                    inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
+                    inner_packet.set_do_not_care_scapy(packet.IP, "ttl")
                 logging.info("Expected inner packet: %s", mirror_packet_sent.summary())
                 pytest_assert(inner_packet.pkt_match(mirror_packet_sent),
                               "Mirror payload does not match received packet")
@@ -932,15 +1004,23 @@ class BaseEverflowTest(object):
                 testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
 
     @staticmethod
-    def copy_and_pad(pkt, asic_type, platform_asic, hwsku):
+    def copy_and_pad(pkt, asic_type, platform_asic, hwsku, multi_binding_acl=False):
         padded = pkt.copy()
 
         # Add vendor specific padding to the packet
         if asic_type == "mellanox":
             if six.PY2:
-                padded = binascii.unhexlify("0" * 44) + str(padded)
+                if multi_binding_acl:
+                    padded = binascii.unhexlify("0" * 44) + str(padded)[:24] + binascii.unhexlify("0" * 40) + \
+                        str(padded)[24:]
+                else:
+                    padded = binascii.unhexlify("0" * 44) + str(padded)
             else:
-                padded = binascii.unhexlify("0" * 44) + bytes(padded)
+                if multi_binding_acl:
+                    padded = binascii.unhexlify("0" * 44) + bytes(padded)[:24] + binascii.unhexlify("0" * 40) + \
+                        bytes(padded)[24:]
+                else:
+                    padded = binascii.unhexlify("0" * 44) + bytes(padded)
         if asic_type in ["barefoot", "cisco-8000", "marvell-teralynx"] \
            or platform_asic == "broadcom-dnx" \
            or hwsku in ["rd98DX35xx", "rd98DX35xx_cn9131", "Nokia-7215-A1"]:
@@ -951,11 +1031,13 @@ class BaseEverflowTest(object):
         return padded
 
     @staticmethod
-    def get_expected_mirror_packet_ipv4(mirror_session, setup, duthost, direction, mirror_packet, ttl_dec):
+    def get_expected_mirror_packet_ipv4(mirror_session, setup, duthost, direction, mirror_packet, ttl_dec,
+                                        multi_binding_acl=False):
         asic_type = duthost.facts["asic_type"]
         platform_asic = duthost.facts.get("platform_asic")
         hwsku = duthost.facts["hwsku"]
-        payload = BaseEverflowTest.copy_and_pad(mirror_packet, asic_type, platform_asic, hwsku)
+        payload = BaseEverflowTest.copy_and_pad(
+            mirror_packet, asic_type, platform_asic, hwsku, multi_binding_acl=multi_binding_acl)
 
         expected_packet = testutils.simple_gre_packet(
             eth_src=setup[direction]["egress_router_mac"],
@@ -990,11 +1072,13 @@ class BaseEverflowTest(object):
         return expected_packet
 
     @staticmethod
-    def get_expected_mirror_packet_ipv6(mirror_session, setup, duthost, direction, mirror_packet, hlim_dec):
+    def get_expected_mirror_packet_ipv6(mirror_session, setup, duthost, direction, mirror_packet, hlim_dec,
+                                        multi_binding_acl=False):
         asic_type = duthost.facts["asic_type"]
         platform_asic = duthost.facts.get("platform_asic")
         hwsku = duthost.facts["hwsku"]
-        payload = BaseEverflowTest.copy_and_pad(mirror_packet, asic_type, platform_asic, hwsku)
+        payload = BaseEverflowTest.copy_and_pad(
+            mirror_packet, asic_type, platform_asic, hwsku, multi_binding_acl=multi_binding_acl)
 
         expected_packet = testutils.simple_grev6_packet(
             eth_src=setup[direction]["egress_router_mac"],
@@ -1024,20 +1108,29 @@ class BaseEverflowTest(object):
         return expected_packet
 
     @staticmethod
-    def get_expected_mirror_packet(mirror_session, setup, duthost, direction, mirror_packet, ttl_dec, erspan_ip_ver=4):
+    def get_expected_mirror_packet(mirror_session, setup, duthost, direction, mirror_packet, ttl_dec,
+                                   erspan_ip_ver=4, multi_binding_acl=False):
         if erspan_ip_ver == 4:
             return BaseEverflowTest.get_expected_mirror_packet_ipv4(mirror_session, setup, duthost,
-                                                                    direction, mirror_packet, ttl_dec)
+                                                                    direction, mirror_packet, ttl_dec,
+                                                                    multi_binding_acl=multi_binding_acl)
         else:
             return BaseEverflowTest.get_expected_mirror_packet_ipv6(mirror_session, setup, duthost,
-                                                                    direction, mirror_packet, ttl_dec)
+                                                                    direction, mirror_packet, ttl_dec,
+                                                                    multi_binding_acl=multi_binding_acl)
 
-    def _extract_mirror_payload(self, encapsulated_packet, payload_size, erspan_ip_ver=4):
+    def _extract_mirror_payload(self, encapsulated_packet, payload_size, erspan_ip_ver=4, multi_binding_acl=False):
         outer_header_size = OUTER_HEADER_SIZE if erspan_ip_ver == 4 else OUTER_HEADER_SIZE_V6
+        if multi_binding_acl:
+            outer_header_size += 20
         pytest_assert(len(encapsulated_packet) >= outer_header_size,
-                      f"Incomplete packet, expected at least {outer_header_size} header bytes")
+                      "Incomplete packet, expected at least {} header bytes".format(outer_header_size))
 
         inner_frame = encapsulated_packet[-payload_size:]
+        if multi_binding_acl:
+            inner_frame = encapsulated_packet[-(payload_size + 20):]
+            inner_frame = self.remove_outer_ip(inner_frame)
+            return inner_frame
         return packet.Ether(inner_frame)
 
     @staticmethod

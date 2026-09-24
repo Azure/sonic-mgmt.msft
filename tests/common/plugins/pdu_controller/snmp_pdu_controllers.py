@@ -187,6 +187,9 @@ class snmpPduController(PduControllerBase):
         if not self.pduType:
             logger.error('PDU type is unknown: pdu_ip {}'.format(self.controller))
             return
+        if not hasattr(self, 'ro_snmp_auth'):
+            logger.error('Does not have readonly snmp_auth')
+            return
 
         for lane_id in range(1, self.max_lanes + 1):
             self._probe_lane(lane_id, self.ro_snmp_auth)
@@ -255,12 +258,8 @@ class snmpPduController(PduControllerBase):
         logger.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
         self.controller = controller
-        self.snmp_rocommunity = pdu['snmp_rocommunity']
-        if 'secret_group_vars' in pdu['snmp_rwcommunity']:
-            context = {'secret_group_vars': pdu['secret_group_vars']}
-            self.snmp_rwcommunity = jinja2.Template(pdu['snmp_rwcommunity']).render(context)
-        else:
-            self.snmp_rwcommunity = pdu['snmp_rwcommunity']
+        self._get_pdu_snmp_creds(pdu, "ro")
+        self._get_pdu_snmp_creds(pdu, "rw")
         self.pduType = 'Sentry4' if hwsku == 'Sentry' and psu_peer_type == 'Pdu' else hwsku
         self.port_oid_dict = {}
         self.port_label_dict = {}
@@ -283,6 +282,9 @@ class snmpPduController(PduControllerBase):
         """
         if not self.pduType:
             logger.error('Unable to turn on: PDU type is unknown: pdu_ip {}'.format(self.controller))
+            return False
+        if not hasattr(self, 'rw_snmp_auth'):
+            logger.error("Does not have readwrite snmp_auth")
             return False
 
         port_oid = self.PORT_CONTROL_BASE_OID + outlet
@@ -405,8 +407,12 @@ class snmpPduController(PduControllerBase):
                  The outlet in returned result is integer starts from 0.
         """
         results = []
+
         if not self.pduType:
             logger.error('Unable to retrieve status: PDU type is unknown: pdu_ip {}'.format(self.controller))
+            return results
+        if not hasattr(self, 'ro_snmp_auth'):
+            logger.error('Does not have readonly snmp_auth')
             return results
 
         if not outlet and not hostname:

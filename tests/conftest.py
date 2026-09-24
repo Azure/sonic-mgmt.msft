@@ -27,7 +27,8 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.devices.cisco import CiscoHost
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session    # noqa F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session, \
+    stop_route_checker_on_duthost, start_route_checker_on_duthost                       # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                        # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active         # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session              # noqa F401
@@ -59,6 +60,7 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.mellanox_data import is_mellanox_device
 
 try:
     from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
@@ -2627,12 +2629,18 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
 
 
 @pytest.fixture(scope="module", autouse=True)
-def temporarily_disable_route_check(request, duthosts):
+def temporarily_disable_route_check(request, tbinfo, duthosts):
     check_flag = False
     for m in request.node.iter_markers():
         if m.name == "disable_route_check":
             check_flag = True
             break
+
+    allowed_topologies = {"t2", "ut2", "lt2"}
+    topo_name = tbinfo['topo']['name']
+    if check_flag and topo_name not in allowed_topologies:
+        logger.info("Topology {} is not allowed for temporarily_disable_route_check fixture".format(topo_name))
+        check_flag = False
 
     def wait_for_route_check_to_pass(dut):
 
@@ -2656,7 +2664,7 @@ def temporarily_disable_route_check(request, duthosts):
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit stop routeCheck")
+                    executor.submit(stop_route_checker_on_duthost, duthost, wait_for_status=True)
 
             yield
 
@@ -2666,7 +2674,7 @@ def temporarily_disable_route_check(request, duthosts):
         finally:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit start routeCheck")
+                    executor.submit(start_route_checker_on_duthost, duthost, wait_for_status=True)
     else:
         logger.info("Skipping temporarily_disable_route_check fixture")
         yield
@@ -3009,3 +3017,42 @@ def setup_pfc_test(
 
     logger.info("setup_info : {}".format(setup_info))
     yield setup_info
+
+
+def is_sai_profile_multi_binding_enabled(duthost):
+    """
+    Check if SAI_ACL_MULTI_BINDING_ENABLED is enabled in syncd docker's sai.profile
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in sai.profile, False otherwise
+    """
+    try:
+        # Check if sai.profile exists in syncd docker
+        result = duthost.shell(
+            "docker exec syncd ls /tmp/sai.profile", module_ignore_errors=True)
+        if result['rc'] != 0:
+            return False
+
+        # Check if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in the file
+        result = duthost.shell(
+            "docker exec syncd grep 'SAI_ACL_MULTI_BINDING_ENABLED=1' /tmp/sai.profile", module_ignore_errors=True)
+        return result['rc'] == 0
+    except Exception as e:
+        logger.error("Failed to check sai.profile: %s", str(e))
+        return False
+
+
+@pytest.fixture(scope="module")
+def is_multi_binding_acl_enabled(duthosts, tbinfo):
+    """
+    Check if multi-binding ACL is enabled on the DUT
+    """
+    for duthost in duthosts:
+        if not is_sai_profile_multi_binding_enabled(duthost):
+            if is_mellanox_device(duthost) and 'dualtor' in tbinfo['topo']['name']:
+                pytest.fail(
+                    "No multi-binding ACL supported on this platform, please check the sai.profile")
+            pytest.skip("No multi-binding ACL supported on this platform")
