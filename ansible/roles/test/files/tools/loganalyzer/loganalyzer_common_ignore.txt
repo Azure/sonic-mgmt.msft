@@ -326,7 +326,7 @@ r, ".* ERR kernel:.*cisco-fpga-p2pm-m-slot p2pm-m-slot\.\d+: cisco_fpga_select_n
 r, ".* ERR kernel:.*cisco-fpga-pci \d+:\d+:\d+\.\d+: cisco_fpga_select_new_acpi_companion: searching for child status\d+ 0x[0-9a-f]+; fpga_id 0x[0-9a-f]+.*"
 r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
 r, ".* ERR syncd\d*#syncd:.* -E-HLD-0- Trap.* is not supported.*"
-r, ".* ERR pmon#xcvrd:.*CMIS:.*no suitable app for the port appl.*"
+r, ".* ERR pmon#(?:xcvrd|CmisManagerTask).*no suitable app for the port appl.*"
 r, ".* ERR kernel:.*ltc2497.*i2c transfer failed: -EFAULT"
 r, ".* ERR syncd\d*#syncd:.*get_sq_size_watermark_in_bytes API returned: status = Leaba_Err: Invalid parameter.*"
 
@@ -375,6 +375,11 @@ r, ".* ERR audisp-tacplus: tac_connect_single: connection failed with.*Transport
 # Errors for syncd shutdown on mellanox platform
 r, ".* ERR kernel:.*sxd_kernel: \[error\] SDK main monitor thread does not respond"
 r, ".* ERR kernel:.*sxd_kernel: \[error\] Health-Check: device=1, cause=10 \['SDK thread issue'\] - stopping further device monitoring"
+# Newer SDK versions log the same syncd shutdown health check in a different format:
+# a dev_id=<N> prefix and dev_id [<N>] in place of device=<N> - raised as either
+# cause=10 (SDK thread issue) or cause=12 (SDK watchdog).
+r, ".* ERR kernel:.*sxd_kernel: \[error\] dev_id=\d+: Health check: dev_id \[\d+\], SDK thread \[.*\] TID \[.*\] does not respond.*"
+r, ".* ERR kernel:.*sxd_kernel: \[error\] dev_id=\d+: Health-Check: dev_id \[\d+\], cause=\d+ \['(?:SDK thread issue|SDK watchdog)'\] - stopping further device monitoring.*"
 
 # Ignore gbsynd error for 720DT
 r, ".*ERR gbsyncd#syncd: :- collectData: Failed to get stats of Port Counter.*"
@@ -522,3 +527,8 @@ r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped 
 # ctrmgrd k8s join warnings (old k8s version incompatibility with Docker 28.x)
 r, ".* ERR ctrmgrd\.py: Refer file .* for troubleshooting tips.*"
 r, ".* ERR ctrmgrd\.py:.*\[WARNING SystemVerification\]:.*Docker version is not on the list of validated versions.*"
+
+# ignore journalctl tac_connect_single and nss_tacplus errors during config reload
+# TACACS+ is temporarily unreachable while the SONiC network stack restarts
+r, ".* ERR journalctl: tac_connect_single: connection failed with .*Transport endpoint is not connected"
+r, ".* ERR journalctl: nss_tacplus: failed to connect TACACS\+ server .*Transport endpoint is not connected"
