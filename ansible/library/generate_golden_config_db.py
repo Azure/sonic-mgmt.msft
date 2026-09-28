@@ -44,6 +44,7 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
                          'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
                          'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16',
+                         'Mellanox-SN5640-C508O1X2', 'Mellanox-SN5640-O128X2', 'Mellanox-SN5640-C512X2',
                          "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2"})
 
 
@@ -339,16 +340,23 @@ class GenerateGoldenConfigDBModule(object):
                 golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
                 golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
-        # set counterpoll interval to 2000ms as workaround for Slowness observed in nexthop group and member programming
-        if "FLEX_COUNTER_TABLE" in ori_config_db and 'sn5640' in self.platform:
-            golden_config_db["FLEX_COUNTER_TABLE"] = ori_config_db["FLEX_COUNTER_TABLE"]
-            golden_config_db["FLEX_COUNTER_TABLE"]["PORT"]["POLL_INTERVAL"] = "2000"
-
         return json.dumps(golden_config_db, indent=4)
 
     def check_version_for_bmp(self):
-        # disable bmp feature table first
-        return False
+        output_version = device_info.get_sonic_version_info()
+        build_version = output_version['build_version']
+
+        if re.match(r'^(\d{6})', build_version):
+            version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if version_number < 202411:
+                return False
+        elif re.match(r'^internal-(\d{6})', build_version):
+            internal_version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if internal_version_number < 202411:
+                return False
+        else:
+            return True
+        return True
 
     def is_bmc_device(self):
         return device_info.get_localhost_info('type') == 'NetworkBmc'
