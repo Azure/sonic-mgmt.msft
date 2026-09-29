@@ -43,7 +43,7 @@ jobs:
         run: |
           set -ex
 
-          branches="master 202412 202506 202511_azd 202601 202603 202606 202607 202608"
+          branches="master 202412 202506 202511_azd 202601 202603 202606 202607"
           conflicts_file="$GITHUB_WORKSPACE/conflicts.jsonl"
           rm -f "$conflicts_file"
           pushd sonic-mgmt.msft
@@ -76,9 +76,6 @@ jobs:
               branch_head=202605
             fi
             if [[ $branch_head == "202607" ]]; then
-              branch_head=202605
-            fi
-            if [[ $branch_head == "202608" ]]; then
               branch_head=202605
             fi
 
