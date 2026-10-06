@@ -4198,10 +4198,6 @@ platform_tests/test_reload_config.py::test_reload_configuration:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24543 and asic_type in ['mellanox'] and 'sn4280' in platform"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
-  skip:
-    reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
-    conditions:
-      - "asic_type in ['cisco-8000']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo or smartswitch platform"
     conditions_logical_operator: or
@@ -5499,6 +5495,12 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 44"
+
+system_health/test_system_status.py::test_system_is_running:
+  skip:
+    reason: "watchdog-control can not load on kvm testbed, leaving the system in 'degraded' state so 'systemctl is-system-running' never returns 'running'."
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
 
 system_health/test_watchdog.py::test_orchagent_watchdog:
   skip:
