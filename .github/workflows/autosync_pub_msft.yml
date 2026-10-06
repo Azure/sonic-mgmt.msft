@@ -115,7 +115,9 @@ jobs:
                 --arg repo "Azure/sonic-mgmt.msft" \
                 --arg branch "$branch_base" \
                 --arg commit "$head_commit" \
-                '{repo: $repo, branch: $branch, commit: $commit}' >> "$conflicts_file"
+                --arg upstream_repo "sonic-net/sonic-mgmt" \
+                --arg upstream_branch "$branch_head" \
+                '{repo: $repo, branch: $branch, commit: $commit, upstream_repo: $upstream_repo, upstream_branch: $upstream_branch}' >> "$conflicts_file"
               git merge --abort
               continue
             fi
