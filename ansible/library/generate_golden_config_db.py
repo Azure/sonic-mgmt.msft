@@ -45,7 +45,7 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
                          'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16',
                          'Mellanox-SN5640-C508O1X2', 'Mellanox-SN5640-O128X2', 'Mellanox-SN5640-C512X2',
-                         "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2"})
+                         "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2", "Mellanox-SN4280-O4X96"})
 
 
 def is_full_lossy_hwsku(hwsku):
@@ -1543,7 +1543,9 @@ class GenerateGoldenConfigDBModule(object):
             })
 
         # BMC runs only these services. Disable any other feature present in the image.
-        if self.is_bmc_device():
+        # DEVICE_METADATA may still be "not-provisioned" before the first
+        # minigraph load, so also identify BMC from the requested topology.
+        if self.is_bmc_device() or "bmc" in self.topo_name.lower():
             bmc_enabled_features = [
                 "database", "gnmi", "lldp", "pmon", "redfish", "sysmgr",
                 "telemetry", "acms"
