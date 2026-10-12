@@ -477,6 +477,27 @@ def test_session_preparation_direct_path_defers_on_bootloader():
     assert getattr(conn, "_bootloader_deferred", False) is True
 
 
+def test_login_stage_2_does_not_send_username_when_boot_banner_contains_login_word():
+    conn = _make_console([
+        "Press Control-C now to enter Aboot shell\nStarting Login Service\n",
+    ])
+    conn.RETURN = RETURN
+    conn.remote_conn = mock.MagicMock()
+
+    with mock.patch("tests.common.connections.ssh_console_conn.time.sleep"):
+        result = SSHConsoleConn.login_stage_2(
+            conn,
+            username="admin",
+            password="password",
+            defer_on_bootloader=True,
+            max_loops=1,
+        )
+
+    assert "Press Control-C now" in result
+    assert conn._bootloader_deferred is True
+    assert _written(conn) == []
+
+
 def test_read_initial_console_bounded_on_silent_console():
     """Fix D (regression guard for Fix C): suppressing netmiko's priming CR means
     a genuinely SILENT console returns no data here. The passive read must be

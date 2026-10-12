@@ -238,11 +238,7 @@ class SSHConsoleConn(BaseConsoleConn):
             # non-interactive boot stage and avoid later writes that could abort autoboot.
             self._bootloader_deferred = True
             return
-        # Attempt all sonic password. A wrong password must not prevent a
-        # subsequent correct password in the list from succeeding, so we
-        # re-synchronise the terminal back to a fresh "login:" prompt between
-        # attempts (the failed attempt leaves a "Login incorrect" banner in the
-        # buffer that would otherwise desync the next login).
+        # Attempt all sonic passwords.
         for i in range(0, len(self.sonic_password)):
             password = self.sonic_password[i]
             try:
@@ -375,38 +371,6 @@ class SSHConsoleConn(BaseConsoleConn):
         self.clear_buffer()
         return False
 
-    def _resync_to_login_prompt(self, max_loops=20, delay_factor=1):
-        """
-        Re-synchronise the console to a fresh "login:" prompt.
-
-        After a failed password attempt the getty prints a "Login incorrect"
-        banner followed by a new login prompt. Drain that stale output and wait
-        for a clean login prompt so the next credential in the list starts from
-        a known state (otherwise the leftover banner desyncs the next attempt).
-        """
-        # Floor the delay factor so the wait spans the ~3s pam_faildelay after a failed login.
-        delay_factor = max(self.select_delay_factor(delay_factor), 1)
-        # Drop any pending "Login incorrect" / banner output.
-        self.clear_buffer()
-        i = 1
-        while i <= max_loops:
-            try:
-                self.write_channel(self.RETURN)
-                time.sleep(0.5 * delay_factor)
-                output = self.read_channel()
-                # A fresh prompt ends with "login:" (with the colon); this does
-                # not match the "Login incorrect" failure banner.
-                if re.search(r"login:\s*$", output, flags=re.I | re.M):
-                    self.clear_buffer()
-                    return
-            except EOFError:
-                self.remote_conn.close()
-                raise NetMikoAuthenticationException(
-                    "Login failed: {}".format(self.host))
-            i += 1
-        # Best effort: leave the buffer clean for the next attempt.
-        self.clear_buffer()
-
     def login_stage_2(self,
                       username,
                       password,
@@ -463,6 +427,13 @@ class SSHConsoleConn(BaseConsoleConn):
                 else:
                     output = self.read_channel()
                 return_msg += output
+
+                if defer_on_bootloader and BOOTLOADER_BANNER_RE.search(return_msg):
+                    self.logger.warning(
+                        "Console is in a bootloader/boot stage; deferring login to avoid "
+                        "aborting autoboot")
+                    self._bootloader_deferred = True
+                    return return_msg
 
                 # Search for username pattern / send username
                 if not user_sent and re.search(username_pattern, output, flags=re.I):
