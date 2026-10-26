@@ -60,6 +60,62 @@ PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 DUMMY_OUTER_SRC_IP = '8.8.8.8'
 DUMMY_INNER_SRC_IP = '9.9.9.9'
 DUMMY_INNER_DST_IP = '10.10.10.10'
+<<<<<<< HEAD
+=======
+# SAI profile key for lossy headroom counter (PG xoff headroom watermark)
+SAI_KEY_INGRESS_PG_XOFF_STAT_LOSSY_HR_ENABLED = "SAI_KEY_INGRESS_PG_XOFF_STAT_LOSSY_HR_ENABLED=1"
+
+
+def _sai_profile_has_lossy_hr_enabled(duthost):
+    """Check if sai.profile on DUT has SAI_KEY_INGRESS_PG_XOFF_STAT_LOSSY_HR_ENABLED=1."""
+    if not is_mellanox_device(duthost):
+        return False
+    platform = duthost.facts.get("platform")
+    hwsku = duthost.facts.get("hwsku")
+    if not platform or not hwsku:
+        return False
+    sai_profile_path = f"/usr/share/sonic/device/{platform}/{hwsku}/sai.profile"
+    try:
+        out = duthost.shell(f"cat {sai_profile_path}", module_ignore_errors=True)
+        if out["rc"] != 0:
+            return False
+        return SAI_KEY_INGRESS_PG_XOFF_STAT_LOSSY_HR_ENABLED in out.get("stdout", "")
+    except Exception:
+        return False
+
+
+def _sai_mmu_custom_config_enabled(duthost):
+    """Check if the SAI init config on DUT sets sai_mmu_custom_config to 1."""
+    sku_dir = "/usr/share/sonic/device/{}/{}".format(duthost.facts.get("platform"), duthost.facts.get("hwsku"))
+    out = duthost.shell("cat {}/sai.profile".format(sku_dir), module_ignore_errors=True)
+    match = re.search(r"^SAI_INIT_CONFIG_FILE=\S*/([^/\s]+)$", out.get("stdout", ""), re.M)
+    if out["rc"] != 0 or not match:
+        return False
+    out = duthost.shell("grep -Eq '^\\s*sai_mmu_custom_config\\s*[:=]\\s*1\\b' {}/{}".format(sku_dir, match.group(1)),
+                        module_ignore_errors=True)
+    return out["rc"] == 0
+
+
+@pytest.fixture(autouse=False)
+def enable_lossy_pg_headroom(get_src_dst_asic_and_duts):
+    duthost = get_src_dst_asic_and_duts["src_dut"]
+    is_enable_lossy_pg_headroom = _sai_profile_has_lossy_hr_enabled(duthost)
+    if is_enable_lossy_pg_headroom:
+        watermark_stat_type = "PG_WATERMARK_STAT"
+        original_interval = duthost.get_counter_poll_status()[watermark_stat_type]["interval"]
+        original_status = duthost.get_counter_poll_status()[watermark_stat_type]["status"]
+        if original_status == "disable":
+            duthost.set_counter_poll_status(watermark_stat_type, "enable")
+        new_poll_interval = 5000  # 5 seconds
+        duthost.set_counter_poll_interval(watermark_stat_type, new_poll_interval)
+
+    yield is_enable_lossy_pg_headroom
+
+    if is_enable_lossy_pg_headroom:
+        duthost.set_counter_poll_interval(watermark_stat_type, original_interval)
+        if original_status == "disable":
+            duthost.set_counter_poll_status(watermark_stat_type, "disable")
+>>>>>>> d66530bde5 ([qos] allow PG7 growth in DscpToPgMapping when the SAI uses a custom MMU config)
 
 
 @pytest.fixture(autouse=True)
@@ -2184,6 +2240,9 @@ class TestQosSai(QosSaiBase):
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
         else:
             testParams["platform_asic"] = None
+
+        testParams["sai_mmu_custom_config"] = _sai_mmu_custom_config_enabled(
+            get_src_dst_asic_and_duts["src_dut"])
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpToPgMapping",
