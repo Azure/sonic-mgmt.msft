@@ -287,6 +287,20 @@ def disable_swss_syslog_rate_limit(duthost, asichost):
         interval_match = re.search(search_regex, result.get("stdout", ""), re.MULTILINE)
         if interval_match:
             break
+    if result.get("rc") == 0 and interval_match is None:
+        # Pretest disables the legacy syntax by commenting out this directive.
+        disabled_legacy_match = re.search(
+            r'^#\$SystemLogRateLimitInterval ([0-9]+)$',
+            result.get("stdout", ""),
+            re.MULTILINE
+        )
+        if disabled_legacy_match:
+            logger.info(
+                "SWSS syslog rate limit is already disabled in container %s",
+                swss_container
+            )
+            yield
+            return
     pytest_assert(
         result.get("rc") == 0 and interval_match is not None,
         "Failed to determine SWSS syslog rate-limit state"
