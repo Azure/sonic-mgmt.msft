@@ -759,9 +759,13 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
     ptfhost.shell("ip neigh flush to %s nud permanent" % dut_lo_addr)
     ptfhost.shell("ip route del {}{}".format(dut_lo_addr, "/128" if is_v6_topo else "/32"), module_ignore_errors=True)
 
-    # Add the route to DUT loopback IP  and the interface router mac
+    # Use the L3 interface MAC; facts["router_mac"] may be wrong on per-port MAC platforms.
+    local_intf = connection["local_intf"]
+    host_facts = asichost.interface_facts()['ansible_facts']['ansible_interface_facts']
+    dut_mac = host_facts[local_intf]['macaddress']
+    logger.info("Using DUT MAC %s from interface %s", dut_mac, local_intf)
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (dut_lo_addr,
-                                                        duthost.facts["router_mac"],
+                                                        dut_mac,
                                                         connection["neighbor_intf"]))
     ptfhost.shell("ip route add {}{} dev {}".format(dut_lo_addr, "/128" if is_v6_topo else "/32",
                                                     connection["neighbor_intf"]))
