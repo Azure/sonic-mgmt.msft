@@ -4,7 +4,7 @@ import json
 
 from .helper import gnoi_request, extract_gnoi_response, apply_cert_config, gnoi_request_dpu, is_reboot_inactive
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.reboot import wait_for_startup
+from tests.common.reboot import wait_for_startup, wait_for_shutdown
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.conftest import get_specified_dpus
@@ -98,6 +98,10 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
         expected_method=RebootMethod["COLD"]
     )
 
+    # Wait until the system is down
+    wait_for_shutdown(duthost, localhost, delay=10, timeout=180, reboot_res=None)
+    logging.info("System is down after reboot")
+
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
     logging.info("System is back up after reboot")
@@ -125,6 +129,8 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
     and the system recovers with all critical processes running.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        pytest.skip("Warm reboot is not supported on smartswitch")
 
     reboot_args = {
         "message": REBOOT_MESSAGE,
@@ -141,6 +147,10 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
         expected_reason=REBOOT_MESSAGE,
         expected_method=RebootMethod["WARM"]
     )
+
+    # Wait until the system is down
+    wait_for_shutdown(duthost, localhost, delay=10, timeout=180, reboot_res=None)
+    logging.info("System is down after reboot")
 
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
