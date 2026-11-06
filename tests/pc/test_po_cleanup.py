@@ -163,7 +163,7 @@ def all_lags_recovered(duthost, expected_names, old_pids):
         cmd = duthost.get_linux_ip_cmd_for_namespace("ip link show", ns)
         res = duthost.shell(cmd, module_ignore_errors=True)
         if res['rc'] != 0:
-            logging.info("ip link show failed in namespace '%s'", ns)
+            logging.info("ip link show failed in namespace '%s': %s", ns, res.get('stderr'))
             return False
         present = set(re.findall(r"PortChannel\d+", res['stdout']))
         absent = [pc for pc in pcs if pc not in present]
@@ -248,20 +248,30 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         "teamd process missing before reload for {}".format(missing_teamd))
     logging.info("Snapshotted teamd PIDs for %s LAGs before reload", len(teamd_pids_before))
 
+    stress_pids = []
     watchdog_pid = None
-    try:
-        # Start a watchdog that guarantees cleanup even if the test times out or aborts.
-        # Without this, 'yes' processes can leak on weak-per-core platforms (e.g. armhf)
-        # where the test may be killed before reaching the finally block.
-        # See: https://github.com/sonic-net/sonic-mgmt/issues/21517
-        watchdog_timeout = 600  # 10 minutes — well beyond config_reload's 240s wait
-        watchdog_cmd = "nohup sh -c 'sleep {}; pkill -x -9 yes' >/dev/null 2>&1 & echo $!".format(
-            watchdog_timeout)
-        watchdog_pid = duthost.shell(watchdog_cmd)['stdout'].strip()
 
+    def stop_cpu_stress():
+        nonlocal watchdog_pid
+        pids = stress_pids + ([watchdog_pid] if watchdog_pid is not None else [])
+        if pids:
+            duthost.shell(
+                "kill {} 2>/dev/null || true".format(" ".join(str(pid) for pid in pids)),
+                module_ignore_errors=True,
+            )
+            stress_pids.clear()
+            watchdog_pid = None
+
+    try:
         # Make CPU high
         for i in range(host_vcpus):
-            duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
+            result = duthost.shell("nohup yes > /dev/null 2>&1 & echo $!; sleep 1")
+            stress_pids.append(int(result['stdout'].strip()))
+
+        # Bound cleanup to this test's recorded PIDs, even if pytest is interrupted.
+        watchdog_cmd = "nohup sh -c 'sleep 600; kill {} 2>/dev/null || true' >/dev/null 2>&1 & echo $!".format(
+            " ".join(str(pid) for pid in stress_pids))
+        watchdog_pid = int(duthost.shell(watchdog_cmd)['stdout'].strip())
 
         # Stop rsyslogd in the swss container for this test case. This is because in the
         # shutdown path, there will be a flood of syslogs from orchagent with messages
@@ -280,17 +290,14 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
             duthost.command("docker exec swss{} supervisorctl stop rsyslogd".format(asic_id))
 
         with loganalyzer:
-            with DisableLogrotateAndWaitSyslogContext(
-                duthost,
-                cleanup=lambda: duthost.shell("killall yes", module_ignore_errors=True),
-            ):
+            with DisableLogrotateAndWaitSyslogContext(duthost, cleanup=stop_cpu_stress):
                 logging.info("Reloading config..")
                 if n_pc > LAG_LOG_STRICT_PER_PC_MAX:
                     # Scale LAG + per-vCPU `yes` keeps CPUs busy during reload; `config_reload`'s
                     # BGP wait would then time out. Keep stress for reload/teammgrd path, then drop
                     # load and wait for BGP here (same timeout math as config_reload).
                     config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=False)
-                    duthost.shell("killall yes", module_ignore_errors=True)
+                    stop_cpu_stress()
                     bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
                     bgp_timeout = bgp_wait_seconds_after_config_reload(duthost, 240)
                     pytest_assert(
@@ -299,14 +306,6 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
                     )
                 else:
                     config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
-        # Cancel the watchdog so it doesn't fire during later tests
-        if watchdog_pid:
-            duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
-
-        # Always stop CPU stress after reload (covers small-LAG else branch; large-LAG also
-        # kills yes before BGP, then this is a no-op if already gone).
-        duthost.shell("killall yes", module_ignore_errors=True)
-
         # All-LAG cleanup and recovery. Config reload also stops the teamd container, so a
         # dead pre-reload PID alone does not prove cleanTeamProcesses sent SIGTERM. Requiring
         # a new teamd process and a kernel interface for every LAG still fails a cleanup that
@@ -317,8 +316,5 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         pytest_assert(
             wait_until(300, 10, 0, all_lags_recovered, duthost, lag_facts['names'], teamd_pids_before),
             "not all LAG teamd processes and kernel interfaces recovered after config reload")
-    except Exception:
-        duthost.shell("killall yes", module_ignore_errors=True)
-        if watchdog_pid:
-            duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
-        raise
+    finally:
+        stop_cpu_stress()
