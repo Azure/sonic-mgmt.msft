@@ -63,7 +63,7 @@
 
     - name: set default light mode
       set_fact:
-        is_light_mode: false
+        is_light_mode: true
       when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode is not defined
 
     - name: set ptf image name
