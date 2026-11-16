@@ -503,3 +503,8 @@ r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped 
 # ctrmgrd k8s join warnings (old k8s version incompatibility with Docker 28.x)
 r, ".* ERR ctrmgrd\.py: Refer file .* for troubleshooting tips.*"
 r, ".* ERR ctrmgrd\.py:.*\[WARNING SystemVerification\]:.*Docker version is not on the list of validated versions.*"
+
+# syncd caches the SerDes TX FIR tap count when polling is registered. If the count grows later
+# (e.g. 3 -> 6 taps after link-up), the SAI GET returns SAI_STATUS_BUFFER_OVERFLOW (-8).
+# Fix proposed in https://github.com/sonic-net/sonic-sairedis/pull/2157
+r, ".* ERR syncd\d*#syncd: :- collectData: PORT_PHY_SERDES_ATTR: Failed to get port serdes attr for VID 0x[0-9a-fA-F]+, status: -8.*"
