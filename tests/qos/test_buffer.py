@@ -889,7 +889,7 @@ def mtu_to_test(request):
     return request.param
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def port_to_test(request, duthost):
     """Used to parametrized test cases for port
 
