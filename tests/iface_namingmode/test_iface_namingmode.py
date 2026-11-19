@@ -3,7 +3,6 @@ import pytest
 import re
 import ipaddress
 from copy import deepcopy
-from contextlib import contextmanager
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -22,57 +21,6 @@ PORT_TOGGLE_TIMEOUT = 30
 ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 90
 
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
-
-
-@contextmanager
-def restore_interface_speed(duthost, sample_intf, setup_config_mode):
-    dutHostGuest, mode, ifmode = setup_config_mode
-    asic = duthost.asic_instance(sample_intf['asic_index'])
-    up_ports = {}
-    if duthost.get_asic_name() == 'th6':
-        port_config = asic.config_facts(source='running')['ansible_facts']['PORT']
-        status = asic.show_interface(command='status')['ansible_facts']['int_status']
-        up_ports = {
-            port: config for port, config in port_config.items()
-            if config.get('admin_status') == 'up'
-            and status.get(port, {}).get('oper_state') == 'up'
-        }
-
-    def links_recovered():
-        status = asic.show_interface(command='status')['ansible_facts']['int_status']
-        return all(status.get(port, {}).get('oper_state') == 'up' for port in up_ports)
-
-    try:
-        yield
-    finally:
-        result = dutHostGuest.shell(
-            'SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'.format(
-                ifmode, sample_intf['cli_ns_option'], sample_intf[mode], sample_intf['native_speed']),
-            module_ignore_errors=True)
-        if up_ports and not wait_until(PORT_TOGGLE_TIMEOUT, 2, 2, links_recovered):
-            # Temporary TH6 workaround: speed changes can leave sibling ports
-            # disabled or with AN out of sync with their configured state.
-            status = asic.show_interface(command='status')['ansible_facts']['int_status']
-            commands = []
-            for port, config in up_ports.items():
-                if status.get(port, {}).get('oper_state') == 'up':
-                    continue
-                logger.warning('Recovering %s after interface speed restore', port)
-                command = 'config interface {}'.format(sample_intf['cli_ns_option'])
-                commands.extend(['{} shutdown {}'.format(command, port), 'sleep 2'])
-                if config.get('autoneg') == 'on':
-                    commands.extend([
-                        '{} autoneg {} disabled'.format(command, port),
-                        'sleep 2',
-                        '{} autoneg {} enabled'.format(command, port),
-                    ])
-                commands.append('{} startup {}'.format(command, port))
-            recovery = duthost.shell_cmds(cmds=commands, continue_on_fail=True, module_ignore_errors=True)
-            pytest_assert(not recovery['failed'], 'Port recovery commands failed: {}'.format(recovery))
-            pytest_assert(
-                wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 2, 0, links_recovered),
-                'Previously-up interfaces did not recover after speed restore: {}'.format(list(up_ports)))
-        pytest_assert(result['rc'] == 0, 'Failed to restore interface speed: {}'.format(result))
 
 
 @pytest.fixture
@@ -1325,7 +1273,16 @@ class TestConfigInterface():
         db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
             .format(duthost.asic_instance(asic_index).sonic_db_cli,
                     interface)
-        with restore_interface_speed(duthost, sample_intf, setup_config_mode):
+        up_ports = {}
+        if duthost.get_asic_name() == 'th6':
+            asic = duthost.asic_instance(asic_index)
+            port_config = asic.config_facts(source='running')['ansible_facts']['PORT']
+            status = asic.show_interface(command='status')['ansible_facts']['int_status']
+            up_ports = {
+                port: config.get('autoneg') for port, config in port_config.items()
+                if config.get('admin_status') == 'up' and status.get(port, {}).get('oper_state') == 'up'
+            }
+        try:
             out = dutHostGuest.shell(
                 'SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'
                 .format(ifmode, cli_ns_option, test_intf, configure_speed))
@@ -1340,6 +1297,31 @@ class TestConfigInterface():
                 "Interface speed mismatch after configuration. "
                 "Expected speed: '{}', actual speed: '{}'."
             ).format(configure_speed, speed)
+        finally:
+            out = dutHostGuest.shell(
+                'SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'
+                .format(ifmode, cli_ns_option, test_intf, native_speed), module_ignore_errors=True)
+            if up_ports:
+                # TH6 speed changes can leave the test port disabled and sibling AN off.
+                status = asic.show_interface(command='status')['ansible_facts']['int_status']
+                commands = []
+                for port, autoneg in up_ports.items():
+                    if status.get(port, {}).get('oper_state') == 'up':
+                        continue
+                    logger.warning('Recovering %s after interface speed restore', port)
+                    command = 'config interface {}'.format(cli_ns_option)
+                    commands.extend(['{} shutdown {}'.format(command, port), 'sleep 2'])
+                    if autoneg == 'on':
+                        commands.extend(['{} autoneg {} disabled'.format(command, port), 'sleep 2',
+                                         '{} autoneg {} enabled'.format(command, port)])
+                    commands.append('{} startup {}'.format(command, port))
+                if commands:
+                    recovery = duthost.shell_cmds(cmds=commands, module_ignore_errors=True)
+                    pytest_assert(not recovery['failed'], 'Port recovery commands failed: {}'.format(recovery))
+                pytest_assert(
+                    wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 2, 0, duthost.links_status_up, list(up_ports)),
+                    'Previously-up interfaces did not recover: {}'.format(list(up_ports)))
+            pytest_assert(out['rc'] == 0, 'Failed to restore interface speed: {}'.format(out))
         speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
         logger.info('speed: {}'.format(speed))
 
