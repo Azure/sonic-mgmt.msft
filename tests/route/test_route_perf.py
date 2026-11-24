@@ -106,8 +106,9 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
     asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
-        if duthost.get_asic_name() == "th5":
-            # For all TH5 family devices, l3_alpm_template is set in config.bcm
+        if duthost.get_asic_name() in ["th5", "th6"]:
+            # For all TH5, TH6 family devices, l3_alpm_template is set in config.bcm
+            # instead of l3_alpm_enable
             # * 1 - Combined (By default)
             # * 2 - Parallel
             pytest_assert(
