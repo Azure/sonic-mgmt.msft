@@ -226,19 +226,19 @@ def configure_a_route_with_same_prefix_as_vlan_for_mlnx(duthost, asichost, tbinf
         f"sudo ip {'-6' if ip_ver == '6' else ''} "
         f"route add {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
     )
-    
+
     route_check_command = (
         f"show {'ipv6' if ip_ver == '6' else 'ip'} "
         f"route {network_with_same_prefix_as_vlan_interface}"
     )
-    
+
     del_dump_route_with_same_prefix_as_vlan_interface_cmd = (
         f"sudo ip {'-6' if ip_ver == '6' else ''} "
         f"route del {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
     )
-    
+
     duthost.shell(add_route_command, module_ignore_errors=True)
-    
+
     assert wait_until(
         30,
         5,
@@ -267,7 +267,7 @@ def get_vlan_prefix_len_per_ip_ver(asichost, tbinfo, ip_ver):
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
     for vlan_port_data in mg_facts["minigraph_vlan_interfaces"]:
         if ipaddress.ip_interface(vlan_port_data['addr']).version == int(ip_ver):
-            logger.info(f"vlan interface {ip_ver} prefix is :{vlan_port_data['prefixlen']}")
+            logger.info(f"vlan interface {ip_ver} prefix is: {vlan_port_data['prefixlen']}")
             return vlan_port_data['prefixlen']
     assert False, f"Not find {ip_ver} prefix for vlan interface config"
 
